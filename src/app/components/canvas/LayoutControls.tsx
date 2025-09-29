@@ -201,7 +201,7 @@ LayoutControlsProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+            <div className="grid grid-cols-3 gap-3 sm:gap-4">
               {/* Horizontal Alignment */}
               <motion.button
                 onClick={onAlignLeft}
@@ -282,7 +282,7 @@ LayoutControlsProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+            <div className="grid grid-cols-3 gap-3 sm:gap-4">
               {/* Vertical Alignment */}
               <motion.button
                 onClick={onAlignTop}
