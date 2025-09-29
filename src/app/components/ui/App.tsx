@@ -29,7 +29,7 @@ function App() {
       description: "Mousepad compacto perfecto para tu setup",
       redirectUrl:
         "https://www.onicaps.online/productos/desk-pad-personalizado/",
-      disabled: true,
+      disabled: false,
     },
     {
       id: "keycap-kda",

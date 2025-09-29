@@ -1,99 +1,105 @@
-import { useRef } from 'react'
+import { useRef } from "react";
 
 interface MoveHandleProps {
   imageProps: {
-    x: number
-    y: number
-    width: number
-    height: number
-  }
-  onMove: (deltaX: number, deltaY: number) => void
-  disableXMovement?: boolean
-  disableYMovement?: boolean
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  onMove: (deltaX: number, deltaY: number) => void;
+  // Temporarily commented out - limit controls
+  // disableXMovement?: boolean;
+  // disableYMovement?: boolean;
 }
 
-export default function MoveHandle({ 
-  imageProps, 
-  onMove, 
-  disableXMovement = false, 
-  disableYMovement = false 
-}: MoveHandleProps) {
-  const lastMousePos = useRef<{ x: number; y: number } | null>(null)
+export default function MoveHandle({
+  imageProps,
+  onMove,
+}: // Temporarily commented out - limit controls
+// disableXMovement = false,
+// disableYMovement = false,
+MoveHandleProps) {
+  const lastMousePos = useRef<{ x: number; y: number } | null>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    document.body.style.cursor = 'move'
-    
+    e.preventDefault();
+    e.stopPropagation();
+    document.body.style.cursor = "move";
+
     // Store initial mouse position
-    lastMousePos.current = { x: e.clientX, y: e.clientY }
+    lastMousePos.current = { x: e.clientX, y: e.clientY };
 
     const handleMouseMove = (e: MouseEvent) => {
-      e.preventDefault()
-      
-      if (!lastMousePos.current) return
-      
+      e.preventDefault();
+
+      if (!lastMousePos.current) return;
+
       // Calculate incremental movement
-      const deltaX = e.clientX - lastMousePos.current.x
-      const deltaY = e.clientY - lastMousePos.current.y
-      
+      const deltaX = e.clientX - lastMousePos.current.x;
+      const deltaY = e.clientY - lastMousePos.current.y;
+
       // Update last position
-      lastMousePos.current = { x: e.clientX, y: e.clientY }
-      
+      lastMousePos.current = { x: e.clientX, y: e.clientY };
+
       // Apply movement with constraints
-      onMove(
-        disableXMovement ? 0 : deltaX,
-        disableYMovement ? 0 : deltaY
-      )
-    }
+      // Temporarily commented out - limit controls
+      // onMove(
+      //   disableXMovement ? 0 : deltaX,
+      //   disableYMovement ? 0 : deltaY
+      // )
+      onMove(deltaX, deltaY);
+    };
 
     const handleMouseUp = () => {
-      document.body.style.cursor = ''
-      lastMousePos.current = null
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
+      document.body.style.cursor = "";
+      lastMousePos.current = null;
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
 
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-  }
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    e.preventDefault()
-    const touch = e.touches[0]
-    
+    e.preventDefault();
+    const touch = e.touches[0];
+
     // Store initial touch position
-    lastMousePos.current = { x: touch.clientX, y: touch.clientY }
+    lastMousePos.current = { x: touch.clientX, y: touch.clientY };
 
     const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault()
-      const touch = e.touches[0]
-      
-      if (!lastMousePos.current) return
-      
+      e.preventDefault();
+      const touch = e.touches[0];
+
+      if (!lastMousePos.current) return;
+
       // Calculate incremental movement
-      const deltaX = touch.clientX - lastMousePos.current.x
-      const deltaY = touch.clientY - lastMousePos.current.y
-      
+      const deltaX = touch.clientX - lastMousePos.current.x;
+      const deltaY = touch.clientY - lastMousePos.current.y;
+
       // Update last position
-      lastMousePos.current = { x: touch.clientX, y: touch.clientY }
-      
+      lastMousePos.current = { x: touch.clientX, y: touch.clientY };
+
       // Apply movement with constraints
-      onMove(
-        disableXMovement ? 0 : deltaX,
-        disableYMovement ? 0 : deltaY
-      )
-    }
+      // Temporarily commented out - limit controls
+      // onMove(
+      //   disableXMovement ? 0 : deltaX,
+      //   disableYMovement ? 0 : deltaY
+      // )
+      onMove(deltaX, deltaY);
+    };
 
     const handleTouchEnd = () => {
-      lastMousePos.current = null
-      document.removeEventListener('touchmove', handleTouchMove)
-      document.removeEventListener('touchend', handleTouchEnd)
-    }
+      lastMousePos.current = null;
+      document.removeEventListener("touchmove", handleTouchMove);
+      document.removeEventListener("touchend", handleTouchEnd);
+    };
 
-    document.addEventListener('touchmove', handleTouchMove)
-    document.addEventListener('touchend', handleTouchEnd)
-  }
+    document.addEventListener("touchmove", handleTouchMove);
+    document.addEventListener("touchend", handleTouchEnd);
+  };
 
   return (
     <div
@@ -113,5 +119,5 @@ export default function MoveHandle({
         </div>
       </div>
     </div>
-  )
+  );
 }
