@@ -201,12 +201,12 @@ LayoutControlsProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 sm:gap-4">
+            <div className="grid grid-cols-3 gap-2 sm:gap-4">
               {/* Horizontal Alignment */}
               <motion.button
                 onClick={onAlignLeft}
                 disabled={disabled}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-200 text-xs md:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 whileHover={!disabled ? { scale: 1.02 } : {}}
                 whileTap={!disabled ? { scale: 0.98 } : {}}
                 title="Alinear a la izquierda"
@@ -230,7 +230,7 @@ LayoutControlsProps) {
               <motion.button
                 onClick={onAlignCenter}
                 disabled={disabled}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-200 text-xs md:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 whileHover={!disabled ? { scale: 1.02 } : {}}
                 whileTap={!disabled ? { scale: 0.98 } : {}}
                 title="Centrar horizontalmente"
@@ -254,7 +254,7 @@ LayoutControlsProps) {
               <motion.button
                 onClick={onAlignRight}
                 disabled={disabled}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-200 text-xs md:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 whileHover={!disabled ? { scale: 1.02 } : {}}
                 whileTap={!disabled ? { scale: 0.98 } : {}}
                 title="Alinear a la derecha"
@@ -282,12 +282,12 @@ LayoutControlsProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 sm:gap-4">
+            <div className="grid grid-cols-3 gap-2 sm:gap-4">
               {/* Vertical Alignment */}
               <motion.button
                 onClick={onAlignTop}
                 disabled={disabled}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-200 text-xs md:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 whileHover={!disabled ? { scale: 1.02 } : {}}
                 whileTap={!disabled ? { scale: 0.98 } : {}}
                 title="Alinear arriba"
@@ -311,7 +311,7 @@ LayoutControlsProps) {
               <motion.button
                 onClick={onAlignMiddle}
                 disabled={disabled}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-200 text-xs md:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 whileHover={!disabled ? { scale: 1.02 } : {}}
                 whileTap={!disabled ? { scale: 0.98 } : {}}
                 title="Centrar verticalmente"
@@ -335,7 +335,7 @@ LayoutControlsProps) {
               <motion.button
                 onClick={onAlignBottom}
                 disabled={disabled}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-200 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-200 text-xs md:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 whileHover={!disabled ? { scale: 1.02 } : {}}
                 whileTap={!disabled ? { scale: 0.98 } : {}}
                 title="Alinear abajo"
