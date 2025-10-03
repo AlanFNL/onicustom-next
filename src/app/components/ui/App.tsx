@@ -15,7 +15,7 @@ function App() {
   const productCards = [
     {
       id: "mousepad-90x40",
-      title: "Mousepad 90x40",
+      title: "Deskpad 90x40 $35.000",
       image: "/assets/mousepad9040.webp",
       description: "Mousepad premium de gran tamaño",
       redirectUrl:
@@ -24,7 +24,7 @@ function App() {
     },
     {
       id: "mousepad-60x40",
-      title: "Mousepad 60x40",
+      title: "Deskpad 60x40 $33.500",
       image: "/assets/mousepad6040.webp",
       description: "Mousepad compacto perfecto para tu setup",
       redirectUrl:
@@ -33,7 +33,7 @@ function App() {
     },
     {
       id: "keycap-kda",
-      title: "Keycap KDA",
+      title: "Keycap XDA",
       image: "/assets/keycap.webp",
       description: "Keycaps personalizados de alta calidad",
       redirectUrl:
