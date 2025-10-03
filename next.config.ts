@@ -17,6 +17,16 @@ const nextConfig: NextConfig = {
     return config;
   },
   transpilePackages: ["react-konva", "konva"],
+  // Increase body size limit for API routes to handle large image uploads
+  experimental: {
+    serverComponentsExternalPackages: [],
+  },
+  // Configure maximum body size for API routes
+  api: {
+    bodyParser: {
+      sizeLimit: "10mb",
+    },
+  },
 };
 
 export default nextConfig;

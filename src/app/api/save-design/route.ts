@@ -40,6 +40,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate file size (10MB limit)
+    const maxFileSize = 10 * 1024 * 1024; // 10MB in bytes
+    if (imageFile.size > maxFileSize) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `File size too large. Maximum allowed size is 10MB. Your file is ${Math.round(
+            imageFile.size / (1024 * 1024)
+          )}MB.`,
+        },
+        { status: 413 }
+      );
+    }
+
+    // Validate file type
+    if (!imageFile.type.startsWith("image/")) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Only image files are allowed",
+        },
+        { status: 400 }
+      );
+    }
+
     // Get environment variables
     const imgbbApiKey = process.env.IMGBB_API_KEY;
     const googleSheetsEndpoint = process.env.GOOGLE_SHEETS_ENDPOINT;
