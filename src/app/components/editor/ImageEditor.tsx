@@ -169,6 +169,8 @@ export default function ImageEditor({
                 ease: [0.32, 0.72, 0, 1],
               }}
             >
+              
+              
               <motion.button
                 onClick={() => setUploadedFile(null)}
                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-200 text-sm sm:text-base whitespace-nowrap"
