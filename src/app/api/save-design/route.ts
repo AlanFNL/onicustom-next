@@ -6,21 +6,14 @@ interface SaveDesignRequest {
   productTitle: string;
   code: string;
   timestamp: string;
-  image: File;
+  imageUrl: string;
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Parse multipart form data
-    const formData = await request.formData();
-
-    // Extract data from form
-    const email = formData.get("email") as string;
-    const productId = formData.get("productId") as string;
-    const productTitle = formData.get("productTitle") as string;
-    const code = formData.get("code") as string;
-    const timestamp = formData.get("timestamp") as string;
-    const imageFile = formData.get("image") as File;
+    // Parse JSON data (client uploads image directly to ImgBB first)
+    const body = await request.json();
+    const { email, productId, productTitle, code, timestamp, imageUrl } = body;
 
     // Validate required fields
     if (
@@ -29,7 +22,7 @@ export async function POST(request: NextRequest) {
       !productTitle ||
       !code ||
       !timestamp ||
-      !imageFile
+      !imageUrl
     ) {
       return NextResponse.json(
         {
@@ -40,36 +33,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file size (10MB limit)
-    const maxFileSize = 10 * 1024 * 1024; // 10MB in bytes
-    if (imageFile.size > maxFileSize) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: `File size too large. Maximum allowed size is 10MB. Your file is ${Math.round(
-            imageFile.size / (1024 * 1024)
-          )}MB.`,
-        },
-        { status: 413 }
-      );
-    }
-
-    // Validate file type
-    if (!imageFile.type.startsWith("image/")) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Only image files are allowed",
-        },
-        { status: 400 }
-      );
-    }
-
     // Get environment variables
-    const imgbbApiKey = process.env.IMGBB_API_KEY;
     const googleSheetsEndpoint = process.env.GOOGLE_SHEETS_ENDPOINT;
 
-    if (!imgbbApiKey || !googleSheetsEndpoint) {
+    if (!googleSheetsEndpoint) {
       return NextResponse.json(
         {
           success: false,
@@ -79,42 +46,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 1: Upload image to ImgBB
-    const imgbbFormData = new FormData();
-    imgbbFormData.append("image", imageFile);
-    imgbbFormData.append("key", imgbbApiKey);
-
-    const imgbbResponse = await fetch("https://api.imgbb.com/1/upload", {
-      method: "POST",
-      body: imgbbFormData,
-    });
-
-    if (!imgbbResponse.ok) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: `Image upload failed: ${imgbbResponse.status}`,
-        },
-        { status: 500 }
-      );
-    }
-
-    const imgbbData = await imgbbResponse.json();
-
-    if (!imgbbData.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Image upload failed",
-        },
-        { status: 500 }
-      );
-    }
-
-    // Step 2: Save data to Google Sheets
+    // Save data to Google Sheets
     const sheetsData = new URLSearchParams();
     sheetsData.append("text", email);
-    sheetsData.append("imageUrl", imgbbData.data.url);
+    sheetsData.append("imageUrl", imageUrl);
     sheetsData.append("timestamp", timestamp);
     sheetsData.append("code", code);
     sheetsData.append("productId", productId);
@@ -143,7 +78,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: "Design saved successfully",
       data: {
-        imageUrl: imgbbData.data.url,
+        imageUrl: imageUrl,
         code: code,
       },
     });

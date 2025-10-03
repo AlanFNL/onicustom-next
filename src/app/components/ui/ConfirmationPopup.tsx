@@ -1,151 +1,187 @@
-'use client'
+"use client";
 
-import { motion, AnimatePresence } from 'framer-motion'
-import { useState } from 'react'
+import { motion, AnimatePresence } from "framer-motion";
+import { useState } from "react";
 
 interface ProductCard {
-  id: string
-  title: string
-  image: string
-  description: string
-  redirectUrl?: string
+  id: string;
+  title: string;
+  image: string;
+  description: string;
+  redirectUrl?: string;
 }
 
 interface ConfirmationPopupProps {
-  isOpen: boolean
-  onClose: () => void
-  currentProduct: ProductCard | undefined
-  canvasDataUrl: string
+  isOpen: boolean;
+  onClose: () => void;
+  currentProduct: ProductCard | undefined;
+  canvasDataUrl: string;
 }
 
-export default function ConfirmationPopup({ 
-  isOpen, 
-  onClose, 
-  currentProduct, 
-  canvasDataUrl 
+export default function ConfirmationPopup({
+  isOpen,
+  onClose,
+  currentProduct,
+  canvasDataUrl,
 }: ConfirmationPopupProps) {
-  const [currentStep, setCurrentStep] = useState(1)
-  const [email, setEmail] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [loadingState, setLoadingState] = useState<'idle' | 'uploading' | 'saving'>('idle')
-  const [generatedCode, setGeneratedCode] = useState('')
-  const [isCopied, setIsCopied] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [currentStep, setCurrentStep] = useState(1);
+  const [email, setEmail] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingState, setLoadingState] = useState<
+    "idle" | "uploading" | "saving"
+  >("idle");
+  const [generatedCode, setGeneratedCode] = useState("");
+  const [isCopied, setIsCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Generate a random 6-character alphanumeric code
   const generateRandomCode = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    let result = ''
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let result = "";
     for (let i = 0; i < 6; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length))
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    return result
-  }
+    return result;
+  };
 
   // Default redirect URLs based on product ID
   const getDefaultRedirectUrl = (productId: string) => {
     const urlMap: Record<string, string> = {
-      'mousepad-90x40': 'https://www.onicaps.online/productos/desk-pad-personalizado/',
-      'mousepad-60x40': 'https://www.onicaps.online/productos/desk-pad-personalizado/',
-      'keycap-kda': 'https://www.onicaps.online/productos/keycap-personalizado/',
-      'spacebar': 'https://www.onicaps.online/productos/spacebar-personalizado/',
-    }
-    return urlMap[productId] || 'https://www.onicaps.online/productos/'
-  }
+      "mousepad-90x40":
+        "https://www.onicaps.online/productos/desk-pad-personalizado/",
+      "mousepad-60x40":
+        "https://www.onicaps.online/productos/desk-pad-personalizado/",
+      "keycap-kda":
+        "https://www.onicaps.online/productos/keycap-personalizado/",
+      spacebar: "https://www.onicaps.online/productos/spacebar-personalizado/",
+    };
+    return urlMap[productId] || "https://www.onicaps.online/productos/";
+  };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email || !currentProduct) return
+    e.preventDefault();
+    if (!email || !currentProduct) return;
 
-    setIsSubmitting(true)
-    setLoadingState('uploading')
-    setError(null)
+    setIsSubmitting(true);
+    setLoadingState("uploading");
+    setError(null);
 
     try {
       // Convert canvas to blob
-      const canvasResponse = await fetch(canvasDataUrl)
-      const blob = await canvasResponse.blob()
-      
+      const canvasResponse = await fetch(canvasDataUrl);
+      const blob = await canvasResponse.blob();
+
       // Generate random code
-      const code = generateRandomCode()
-      setGeneratedCode(code)
-      
-      // Create form data for the API route
-      const formData = new FormData()
-      formData.append('image', blob)
-      formData.append('email', email)
-      formData.append('productId', currentProduct.id)
-      formData.append('productTitle', currentProduct.title)
-      formData.append('code', code)
-      formData.append('timestamp', new Date().toISOString())
-      
-      // Use Next.js API route endpoint
-      const apiUrl = '/api/save-design'
-      
-      const apiResponse = await fetch(apiUrl, {
-        method: 'POST',
-        body: formData
-      })
-      
-      if (!apiResponse.ok) {
-        const errorData = await apiResponse.json().catch(() => ({}))
-        throw new Error(errorData.message || `Request failed: ${apiResponse.status}`)
+      const code = generateRandomCode();
+      setGeneratedCode(code);
+
+      // Step 1: Get ImgBB API key from server
+      const keyResponse = await fetch("/api/imgbb-key");
+      if (!keyResponse.ok) {
+        throw new Error("Failed to get upload configuration");
       }
-      
-      const result = await apiResponse.json()
-      
+      const { apiKey } = await keyResponse.json();
+
+      // Step 2: Upload image directly to ImgBB (bypasses Vercel 4.5MB limit)
+      const imgbbFormData = new FormData();
+      imgbbFormData.append("image", blob);
+      imgbbFormData.append("key", apiKey);
+
+      const imgbbResponse = await fetch("https://api.imgbb.com/1/upload", {
+        method: "POST",
+        body: imgbbFormData,
+      });
+
+      if (!imgbbResponse.ok) {
+        throw new Error(`Image upload failed: ${imgbbResponse.status}`);
+      }
+
+      const imgbbData = await imgbbResponse.json();
+
+      if (!imgbbData.success) {
+        throw new Error("Image upload failed");
+      }
+
+      // Step 3: Save data to Google Sheets via API route
+      const apiResponse = await fetch("/api/save-design", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          productId: currentProduct.id,
+          productTitle: currentProduct.title,
+          code,
+          timestamp: new Date().toISOString(),
+          imageUrl: imgbbData.data.url,
+        }),
+      });
+
+      if (!apiResponse.ok) {
+        const errorData = await apiResponse.json().catch(() => ({}));
+        throw new Error(
+          errorData.message || `Request failed: ${apiResponse.status}`
+        );
+      }
+
+      const result = await apiResponse.json();
+
       if (result.success) {
-        setCurrentStep(2)
+        setCurrentStep(2);
       } else {
-        throw new Error(result.message || 'Failed to save design')
+        throw new Error(result.message || "Failed to save design");
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred'
-      setError(errorMessage)
-      
+      const errorMessage =
+        error instanceof Error ? error.message : "An unexpected error occurred";
+      setError(errorMessage);
+
       // Log error for debugging (only in development)
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Confirmation process error:', error)
+      if (process.env.NODE_ENV === "development") {
+        console.error("Confirmation process error:", error);
       }
     } finally {
-      setIsSubmitting(false)
-      setLoadingState('idle')
+      setIsSubmitting(false);
+      setLoadingState("idle");
     }
-  }
+  };
 
   const handleFinalizePurchase = () => {
-    const redirectUrl = currentProduct?.redirectUrl || getDefaultRedirectUrl(currentProduct?.id || '')
-    window.open(redirectUrl, '_blank')
-    onClose()
-    resetState()
-  }
+    const redirectUrl =
+      currentProduct?.redirectUrl ||
+      getDefaultRedirectUrl(currentProduct?.id || "");
+    window.open(redirectUrl, "_blank");
+    onClose();
+    resetState();
+  };
 
   const resetState = () => {
-    setCurrentStep(1)
-    setEmail('')
-    setIsSubmitting(false)
-    setLoadingState('idle')
-    setGeneratedCode('')
-    setIsCopied(false)
-    setError(null)
-  }
+    setCurrentStep(1);
+    setEmail("");
+    setIsSubmitting(false);
+    setLoadingState("idle");
+    setGeneratedCode("");
+    setIsCopied(false);
+    setError(null);
+  };
 
   const handleClose = () => {
-    onClose()
-    setTimeout(resetState, 300) // Reset after animation completes
-  }
+    onClose();
+    setTimeout(resetState, 300); // Reset after animation completes
+  };
 
   const copyToClipboard = async () => {
     try {
-      await navigator.clipboard.writeText(generatedCode)
-      setIsCopied(true)
-      setTimeout(() => setIsCopied(false), 2000)
+      await navigator.clipboard.writeText(generatedCode);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to copy code:', err)
+      if (process.env.NODE_ENV === "development") {
+        console.error("Failed to copy code:", err);
       }
     }
-  }
+  };
 
   return (
     <AnimatePresence>
@@ -181,8 +217,18 @@ export default function ConfirmationPopup({
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </motion.button>
 
@@ -191,11 +237,13 @@ export default function ConfirmationPopup({
                 <div className="flex items-center space-x-4">
                   <motion.div
                     className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                      currentStep >= 1 ? 'bg-[#7a4dff] text-white' : 'bg-gray-200 text-gray-500'
+                      currentStep >= 1
+                        ? "bg-[#7a4dff] text-white"
+                        : "bg-gray-200 text-gray-500"
                     }`}
-                    animate={{ 
-                      backgroundColor: currentStep >= 1 ? '#7a4dff' : '#e5e7eb',
-                      color: currentStep >= 1 ? '#ffffff' : '#6b7280'
+                    animate={{
+                      backgroundColor: currentStep >= 1 ? "#7a4dff" : "#e5e7eb",
+                      color: currentStep >= 1 ? "#ffffff" : "#6b7280",
                     }}
                     transition={{ duration: 0.3 }}
                   >
@@ -203,18 +251,20 @@ export default function ConfirmationPopup({
                   </motion.div>
                   <motion.div
                     className="w-8 h-0.5 bg-gray-200"
-                    animate={{ 
-                      backgroundColor: currentStep >= 2 ? '#7a4dff' : '#e5e7eb'
+                    animate={{
+                      backgroundColor: currentStep >= 2 ? "#7a4dff" : "#e5e7eb",
                     }}
                     transition={{ duration: 0.3 }}
                   />
                   <motion.div
                     className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                      currentStep >= 2 ? 'bg-[#7a4dff] text-white' : 'bg-gray-200 text-gray-500'
+                      currentStep >= 2
+                        ? "bg-[#7a4dff] text-white"
+                        : "bg-gray-200 text-gray-500"
                     }`}
-                    animate={{ 
-                      backgroundColor: currentStep >= 2 ? '#7a4dff' : '#e5e7eb',
-                      color: currentStep >= 2 ? '#ffffff' : '#6b7280'
+                    animate={{
+                      backgroundColor: currentStep >= 2 ? "#7a4dff" : "#e5e7eb",
+                      color: currentStep >= 2 ? "#ffffff" : "#6b7280",
                     }}
                     transition={{ duration: 0.3 }}
                   >
@@ -234,8 +284,18 @@ export default function ConfirmationPopup({
                     transition={{ duration: 0.3 }}
                   >
                     <div className="flex items-center space-x-2">
-                      <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      <svg
+                        className="w-5 h-5 text-red-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
                       </svg>
                       <p className="text-sm text-red-700">{error}</p>
                     </div>
@@ -263,7 +323,10 @@ export default function ConfirmationPopup({
 
                     <form onSubmit={handleEmailSubmit} className="space-y-6">
                       <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                        <label
+                          htmlFor="email"
+                          className="block text-sm font-medium text-gray-700 mb-2"
+                        >
                           Email
                         </label>
                         <motion.input
@@ -291,27 +354,37 @@ export default function ConfirmationPopup({
                             <motion.div
                               className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
                               animate={{ rotate: 360 }}
-                              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                              transition={{
+                                duration: 1,
+                                repeat: Infinity,
+                                ease: "linear",
+                              }}
                             />
                             <AnimatePresence mode="wait">
-                              {loadingState === 'uploading' && (
+                              {loadingState === "uploading" && (
                                 <motion.span
                                   key="uploading"
                                   initial={{ opacity: 0, y: 10 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   exit={{ opacity: 0, y: -10 }}
-                                  transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
+                                  transition={{
+                                    duration: 0.3,
+                                    ease: [0.32, 0.72, 0, 1],
+                                  }}
                                 >
                                   Subiendo...
                                 </motion.span>
                               )}
-                              {loadingState === 'saving' && (
+                              {loadingState === "saving" && (
                                 <motion.span
                                   key="saving"
                                   initial={{ opacity: 0, y: 10 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   exit={{ opacity: 0, y: -10 }}
-                                  transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
+                                  transition={{
+                                    duration: 0.3,
+                                    ease: [0.32, 0.72, 0, 1],
+                                  }}
                                 >
                                   Guardando...
                                 </motion.span>
@@ -319,7 +392,7 @@ export default function ConfirmationPopup({
                             </AnimatePresence>
                           </div>
                         ) : (
-                          'Guardar Diseño'
+                          "Guardar Diseño"
                         )}
                       </motion.button>
                     </form>
@@ -341,16 +414,27 @@ export default function ConfirmationPopup({
                         animate={{ scale: 1 }}
                         transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
                       >
-                        <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        <svg
+                          className="w-8 h-8 text-green-600"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
                         </svg>
                       </motion.div>
-                      
+
                       <h2 className="text-2xl font-semibold text-gray-900 mb-2">
                         ¡Diseño Guardado!
                       </h2>
                       <p className="text-gray-600 mb-6">
-                        Tu diseño se ha guardado exitosamente. Copia el código de confirmación para finalizar tu compra.
+                        Tu diseño se ha guardado exitosamente. Copia el código
+                        de confirmación para finalizar tu compra.
                       </p>
 
                       {/* Code Display */}
@@ -360,7 +444,9 @@ export default function ConfirmationPopup({
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.4, delay: 0.2 }}
                       >
-                        <p className="text-sm text-gray-600 mb-2">Código de Confirmación:</p>
+                        <p className="text-sm text-gray-600 mb-2">
+                          Código de Confirmación:
+                        </p>
                         <div className="flex items-center justify-between bg-white rounded-xl p-3 border border-gray-200">
                           <code className="text-lg font-mono font-semibold text-gray-900">
                             {generatedCode}
@@ -368,9 +454,9 @@ export default function ConfirmationPopup({
                           <motion.button
                             onClick={copyToClipboard}
                             className={`ml-3 p-2 rounded-lg transition-all duration-200 ${
-                              isCopied 
-                                ? 'bg-green-100 text-green-600 hover:bg-green-200' 
-                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                              isCopied
+                                ? "bg-green-100 text-green-600 hover:bg-green-200"
+                                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                             }`}
                             whileHover={{ scale: isCopied ? 1 : 1.05 }}
                             whileTap={{ scale: isCopied ? 1 : 0.95 }}
@@ -387,10 +473,22 @@ export default function ConfirmationPopup({
                                   transition={{ duration: 0.2 }}
                                   className="flex items-center space-x-1"
                                 >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  <svg
+                                    className="w-4 h-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M5 13l4 4L19 7"
+                                    />
                                   </svg>
-                                  <span className="text-sm font-medium">¡Copiado!</span>
+                                  <span className="text-sm font-medium">
+                                    ¡Copiado!
+                                  </span>
                                 </motion.div>
                               ) : (
                                 <motion.svg
@@ -404,14 +502,20 @@ export default function ConfirmationPopup({
                                   stroke="currentColor"
                                   viewBox="0 0 24 24"
                                 >
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                  />
                                 </motion.svg>
                               )}
                             </AnimatePresence>
                           </motion.button>
                         </div>
                         <p className="text-xs text-gray-500 mt-2">
-                          Pega este código en la página de confirmación para identificar tu pedido
+                          Pega este código en la página de confirmación para
+                          identificar tu pedido
                         </p>
                       </motion.div>
                     </div>
@@ -425,7 +529,7 @@ export default function ConfirmationPopup({
                       >
                         Finalizar Compra
                       </motion.button>
-                      
+
                       <motion.button
                         onClick={handleClose}
                         className="w-full py-3 bg-gray-100 text-gray-700 rounded-2xl font-medium hover:bg-gray-200 transition-colors duration-200"
@@ -443,5 +547,5 @@ export default function ConfirmationPopup({
         </>
       )}
     </AnimatePresence>
-  )
+  );
 }
