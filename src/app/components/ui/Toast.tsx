@@ -57,7 +57,7 @@ export default function Toast({
           transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
         >
           <div
-            className={`${bgColors[type]} border rounded-2xl shadow-xl p-4 pr-12 max-w-md mx-4 backdrop-blur-sm bg-opacity-95`}
+            className={`${bgColors[type]} border rounded-2xl shadow-xl p-4 pr-12 w-[90vw] md:w-fit md:max-w-md mx-4 backdrop-blur-sm bg-opacity-95`}
           >
             <div className="flex items-start space-x-3">
               <div className={`${iconColors[type]} flex-shrink-0 mt-0.5`}>
