@@ -1,10 +1,13 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 /* === Calculadora de fecha de despacho === */
-function calcDispatchFriday(purchaseDate: Date, includeMondayInSameWeek = false) {
+function calcDispatchFriday(
+  purchaseDate: Date,
+  includeMondayInSameWeek = false
+) {
   // JS: 0=Dom, 1=Lun, ..., 6=Sab
   const dow = purchaseDate.getDay();
 
@@ -29,12 +32,31 @@ export function DispatchCalculator() {
   const [result, setResult] = useState<Date | null>(null);
   const [error, setError] = useState<string>("");
 
+  // Get today's date in YYYY-MM-DD format for min attribute
+  const today = new Date().toISOString().split("T")[0];
+
+  // Clear error and reset result when date changes to valid
+  useEffect(() => {
+    if (value && value >= today) {
+      setError("");
+      setResult(null);
+    }
+  }, [value, today]);
+
   const handleCalc = () => {
     setError("");
     setResult(null);
 
     if (!value) {
       setError("Elegí una fecha de compra.");
+      return;
+    }
+
+    // Check if selected date is in the past
+    if (value < today) {
+      setError(
+        "No podés seleccionar una fecha pasada. Elegí hoy o una fecha futura."
+      );
       return;
     }
 
@@ -46,46 +68,92 @@ export function DispatchCalculator() {
       return;
     }
 
-    const friday = calcDispatchFriday(purchase /* , true  <- usa true si querés que los lunes salgan ese mismo viernes */);
+    const friday = calcDispatchFriday(
+      purchase /* , true  <- usa true si querés que los lunes salgan ese mismo viernes */
+    );
     setResult(friday);
   };
 
   const formatAR = (date: Date) =>
-    new Intl.DateTimeFormat("es-AR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" }).format(date);
+    new Intl.DateTimeFormat("es-AR", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }).format(date);
 
   return (
-    <div className="mt-6 rounded-xl border border-amber-200 bg-white/70 p-4">
-      <h4 className="mb-3 text-sm font-semibold text-amber-800">Calculá cuándo se despacha tu pedido, ingresa la fecha en la que estas comprando</h4>
+    <div className="mt-6 pt-6 border-t border-amber-200">
+      <h4 className="mb-4 text-sm font-semibold text-gray-800">
+        Calculá cuándo se despacha tu pedido
+      </h4>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <input
-          type="date"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          className="w-full max-w-xs rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-amber-400"
-        />
-        <button
+      <div className="flex max-w-fit flex-col gap-3 sm:flex-row sm:items-start">
+        <div className="flex-1">
+          <label className="block text-xs font-medium text-gray-600 mb-2">
+            Fecha de compra
+          </label>
+          <input
+            type="date"
+            value={value}
+            min={today}
+            onChange={(e) => setValue(e.target.value)}
+            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none transition-all duration-200 focus:ring-2 focus:ring-[#7a4dff] focus:border-transparent"
+          />
+        </div>
+        <motion.button
           onClick={handleCalc}
-          className="w-full max-w-xs rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-700"
+          disabled={!value || value < today}
+          className={`sm:mt-6 px-5 py-2.5 rounded-xl font-medium transition-colors duration-200 text-sm whitespace-nowrap ${
+            !value || value < today
+              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+              : "bg-[#7a4dff] text-white hover:bg-[#6b42e6]"
+          }`}
+          whileHover={{
+            scale: !value || value < today ? 1 : 1.02,
+          }}
+          whileTap={{
+            scale: !value || value < today ? 1 : 0.98,
+          }}
         >
-          Calcular dia de despacho
-        </button>
+          Calcular
+        </motion.button>
       </div>
 
-      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-
-   {result && (
-        <div className="mt-3 rounded-lg bg-amber-50 p-3 text-amber-800">
-          <p className="text-sm">
-            📦 Tu pedido se despacha el{" "}
-            <span className="font-semibold">{formatAR(result)}</span>.
-          </p>
-          <p className="mt-1 text-xs text-amber-700">
-            Regla: iniciamos producción cada <b>lunes</b> y despachamos los{" "}
-            <b>viernes</b> de esa semana.
-          </p>
-        </div>
+      {error && (
+        <motion.p
+          className="mt-3 text-xs text-red-600 font-medium"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          {error}
+        </motion.p>
       )}
+
+      <AnimatePresence>
+        {result && (
+          <motion.div
+            className="mt-4 rounded-xl bg-white border border-gray-200 p-4 shadow-sm"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
+          >
+            <p className="text-sm text-gray-800 leading-relaxed">
+              Tu pedido se despacha el{" "}
+              <span className="font-semibold text-[#7a4dff]">
+                {formatAR(result)}
+              </span>
+            </p>
+            <p className="mt-2 text-xs text-gray-600 leading-relaxed">
+              Iniciamos producción cada{" "}
+              <span className="font-medium">lunes</span> y despachamos los{" "}
+              <span className="font-medium">viernes</span> de esa semana.
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -95,7 +163,6 @@ interface DisclaimerProps {
 }
 
 export default function Disclaimer({ isVisible }: DisclaimerProps) {
-
   const [showVideo, setShowVideo] = useState(false);
 
   return (
@@ -193,42 +260,58 @@ export default function Disclaimer({ isVisible }: DisclaimerProps) {
                       Luego de subir y confirmar la imagen, el editor te
                       redireccionara a la web para completar tu compra.
                     </p>
+
                     <DispatchCalculator />
 
-                    
+                    {/* Tutorial Section */}
+                    <div className="mt-6 pt-6 border-t border-amber-200">
+                      <div className="flex flex-col max-w-fit justify-start mb-4">
+                        <h4 className="text-sm font-semibold text-gray-800">
+                          Tutorial de uso
+                        </h4>
+                        <motion.button
+                          onClick={() => setShowVideo(!showVideo)}
+                          className="mt-3 px-5 py-2.5 bg-[#7a4dff] text-white rounded-xl font-medium hover:bg-[#6b42e6] transition-colors duration-200 text-sm whitespace-nowrap"
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          {showVideo ? "Ocultar video" : "Ver video"}
+                        </motion.button>
+                      </div>
 
-                    {/* Botón para mostrar el tutorial */}
-<button
-  onClick={() => setShowVideo(!showVideo)}
-  className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm"
->
-  {showVideo ? "Ocultar tutorial 📺" : "Ver tutorial 📺"}
-</button>
-
-{/* Contenedor del video */}
-{showVideo && (
-  <div className="mt-4 relative w-full" style={{ paddingTop: "56.25%" }}>
-    <iframe
-      className="absolute top-0 left-0 w-full h-full rounded-lg"
-      src="https://www.youtube.com/embed/3F6rmb4Ac8w"
-      title="Tutorial de YouTube"
-      frameBorder="0"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-      allowFullScreen
-    />
-  </div>
-)}
-
+                      {/* Contenedor del video */}
+                      <AnimatePresence>
+                        {showVideo && (
+                          <motion.div
+                            className="relative w-full rounded-xl overflow-hidden shadow-md"
+                            style={{ paddingTop: "56.25%" }}
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{
+                              duration: 0.4,
+                              ease: [0.32, 0.72, 0, 1],
+                            }}
+                          >
+                            <iframe
+                              className="absolute top-0 left-0 w-full h-full"
+                              src="https://www.youtube.com/embed/3F6rmb4Ac8w"
+                              title="Tutorial de YouTube"
+                              frameBorder="0"
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                            />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
                 </div>
               </div>
             </motion.div>
           </motion.div>
-          
         )}
       </AnimatePresence>
     </motion.div>
-    
   );
-  
 }

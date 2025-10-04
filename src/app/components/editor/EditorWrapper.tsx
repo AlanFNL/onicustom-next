@@ -16,9 +16,10 @@ interface EditorWrapperProps {
   imageFile: File | null
   productId: string
   canvasRef: React.RefObject<EditorCanvasRef | null>
+  onValidationChange?: (isValid: boolean) => void
 }
 
-export default function EditorWrapper({ imageFile, productId, canvasRef }: EditorWrapperProps) {
+export default function EditorWrapper({ imageFile, productId, canvasRef, onValidationChange }: EditorWrapperProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [isEditorReady, setIsEditorReady] = useState(false)
 
@@ -56,7 +57,8 @@ export default function EditorWrapper({ imageFile, productId, canvasRef }: Edito
               <EditorCanvas 
                 ref={canvasRef} 
                 imageFile={imageFile} 
-                productId={productId} 
+                productId={productId}
+                onValidationChange={onValidationChange}
               />
             )}
           </motion.div>

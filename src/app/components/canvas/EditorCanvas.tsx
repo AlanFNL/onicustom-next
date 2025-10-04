@@ -7,6 +7,7 @@ import {
   forwardRef,
   useImperativeHandle,
   useState,
+  useEffect,
 } from "react";
 import { useResponsiveCanvas } from "../hooks/useResponsiveCanvas";
 import { useImageLoader } from "../hooks/useImageLoader";
@@ -19,14 +20,16 @@ import { ANIMATION_EASING } from "../constants";
 interface EditorCanvasProps {
   imageFile: File | null;
   productId: string;
+  onValidationChange?: (isValid: boolean) => void;
 }
 
 export interface EditorCanvasRef {
   getCanvasDataUrl: () => string;
+  isImageFullyCovering: () => boolean;
 }
 
 const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
-  ({ imageFile, productId }, ref) => {
+  ({ imageFile, productId, onValidationChange }, ref) => {
     const stageRef = useRef<unknown>(null);
     const imageRef = useRef<HTMLImageElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -67,6 +70,29 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
     // const handleDisableY = useCallback(() => {
     //   setDisableYMovement((prev) => !prev);
     // }, []);
+
+    // Image coverage validation
+    const checkImageCoverage = useCallback(() => {
+      if (!image) return false;
+
+      const tolerance = 1; // 1px tolerance for floating point precision
+      const coversLeft = imageProps.x <= tolerance;
+      const coversRight =
+        imageProps.x + imageProps.width >= displayWidth - tolerance;
+      const coversTop = imageProps.y <= tolerance;
+      const coversBottom =
+        imageProps.y + imageProps.height >= displayHeight - tolerance;
+
+      return coversLeft && coversRight && coversTop && coversBottom;
+    }, [image, imageProps, displayWidth, displayHeight]);
+
+    // Notify parent of validation state changes
+    useEffect(() => {
+      if (onValidationChange && image) {
+        const isValid = checkImageCoverage();
+        onValidationChange(isValid);
+      }
+    }, [imageProps, image, checkImageCoverage, onValidationChange]);
 
     // Auto-adjustment functions
     const handleFillCanvas = useCallback(() => {
@@ -342,6 +368,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
 
     // Expose canvas export functionality to parent component
     useImperativeHandle(ref, () => ({
+      isImageFullyCovering: () => checkImageCoverage(),
       getCanvasDataUrl: () => {
         if (stageRef.current && image) {
           // Create a new temporary stage for clean export at design/original pixel size

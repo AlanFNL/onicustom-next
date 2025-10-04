@@ -1,12 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Disclaimer from "../ui/Disclaimer";
 import DragDropArea from "../ui/DragDropArea";
 import EditorWrapper from "./EditorWrapper";
 import type { EditorCanvasRef } from "../canvas/EditorCanvas";
 import ConfirmationPopup from "../ui/ConfirmationPopup";
+import Toast from "../ui/Toast";
 
 interface ProductCard {
   id: string;
@@ -30,6 +31,8 @@ export default function ImageEditor({
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
   const [canvasDataUrl, setCanvasDataUrl] = useState("");
+  const [isImageValid, setIsImageValid] = useState(true);
+  const [showToast, setShowToast] = useState(false);
   const canvasRef = useRef<EditorCanvasRef>(null);
 
   const currentProduct = productCards.find(
@@ -40,8 +43,27 @@ export default function ImageEditor({
     setUploadedFile(file);
   };
 
+  const handleValidationChange = useCallback((isValid: boolean) => {
+    setIsImageValid(isValid);
+
+    // Show toast when validation fails
+    if (!isValid) {
+      setShowToast(true);
+    } else {
+      setShowToast(false);
+    }
+  }, []);
+
   const handleConfirmImage = () => {
     if (canvasRef.current) {
+      // Double-check validation before confirming
+      const isCovering = canvasRef.current.isImageFullyCovering();
+
+      if (!isCovering) {
+        setShowToast(true);
+        return;
+      }
+
       const dataUrl = canvasRef.current.getCanvasDataUrl();
       setCanvasDataUrl(dataUrl);
       setIsConfirmationOpen(true);
@@ -156,6 +178,7 @@ export default function ImageEditor({
               imageFile={uploadedFile}
               productId={productId}
               canvasRef={canvasRef}
+              onValidationChange={handleValidationChange}
             />
 
             {/* Action Buttons */}
@@ -169,8 +192,6 @@ export default function ImageEditor({
                 ease: [0.32, 0.72, 0, 1],
               }}
             >
-              
-              
               <motion.button
                 onClick={() => setUploadedFile(null)}
                 className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-200 text-sm sm:text-base whitespace-nowrap"
@@ -182,9 +203,14 @@ export default function ImageEditor({
 
               <motion.button
                 onClick={handleConfirmImage}
-                className="px-5 py-2 bg-[#7a4dff] text-white rounded-xl font-medium hover:bg-[#6b42e6] transition-colors duration-200 text-sm sm:text-base whitespace-nowrap"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                disabled={!isImageValid}
+                className={`px-5 py-2 rounded-xl font-medium transition-colors duration-200 text-sm sm:text-base whitespace-nowrap ${
+                  isImageValid
+                    ? "bg-[#7a4dff] text-white hover:bg-[#6b42e6]"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                }`}
+                whileHover={{ scale: isImageValid ? 1.02 : 1 }}
+                whileTap={{ scale: isImageValid ? 0.98 : 1 }}
               >
                 Confirmar Imagen
               </motion.button>
@@ -269,6 +295,15 @@ export default function ImageEditor({
         onClose={() => setIsConfirmationOpen(false)}
         currentProduct={currentProduct}
         canvasDataUrl={canvasDataUrl}
+      />
+
+      {/* Toast Warning */}
+      <Toast
+        isVisible={showToast}
+        message="Cuidado, la imagen no está llenando todo el pad. Ajustala usando los botones o movela manualmente para que cubra todo el espacio."
+        type="warning"
+        onClose={() => setShowToast(false)}
+        duration={6000}
       />
     </motion.div>
   );
