@@ -33,6 +33,7 @@ export default function ConfirmationPopup({
   const [generatedCode, setGeneratedCode] = useState("");
   const [isCopied, setIsCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [acceptTerms, setAcceptTerms] = useState(false);
 
   // Generate a random 6-character alphanumeric code
   const generateRandomCode = () => {
@@ -164,6 +165,7 @@ export default function ConfirmationPopup({
     setGeneratedCode("");
     setIsCopied(false);
     setError(null);
+    setAcceptTerms(false);
   };
 
   const handleClose = () => {
@@ -181,6 +183,10 @@ export default function ConfirmationPopup({
         console.error("Failed to copy code:", err);
       }
     }
+  };
+
+  const openTermsAndConditions = () => {
+    window.open("/terminos-y-condiciones", "_blank");
   };
 
   return (
@@ -342,9 +348,37 @@ export default function ConfirmationPopup({
                         />
                       </div>
 
+                      {/* Terms and Conditions Checkbox */}
+                      <div className="flex items-start space-x-3 select-none">
+                        <motion.input
+                          type="checkbox"
+                          id="acceptTerms"
+                          checked={acceptTerms}
+                          onChange={(e) => setAcceptTerms(e.target.checked)}
+                          className="mt-1 w-4 h-4 text-[#7a4dff] bg-gray-100 border-gray-300 rounded focus:ring-[#7a4dff] focus:ring-2"
+                          required
+                          whileFocus={{ scale: 1.1 }}
+                          transition={{ duration: 0.2 }}
+                        />
+                        <motion.label
+                          htmlFor="acceptTerms"
+                          className="text-sm text-gray-700 leading-relaxed"
+                          transition={{ duration: 0.2 }}
+                        >
+                          Acepto los{" "}
+                          <button
+                            type="button"
+                            onClick={openTermsAndConditions}
+                            className="text-[#7a4dff] hover:text-[#6b42e6] cursor-pointer underline font-medium transition-colors duration-200"
+                          >
+                            términos y condiciones
+                          </button>
+                        </motion.label>
+                      </div>
+
                       <motion.button
                         type="submit"
-                        disabled={isSubmitting || !email}
+                        disabled={isSubmitting || !email || !acceptTerms}
                         className="w-full py-3 bg-[#7a4dff] text-white rounded-2xl font-medium hover:bg-[#6b42e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                         whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
                         whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
