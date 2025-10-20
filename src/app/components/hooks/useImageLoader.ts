@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
-interface ImageProps {
+export interface ImageProps {
   x: number;
   y: number;
   width: number;
@@ -10,100 +10,176 @@ interface ImageProps {
   scaleY: number;
 }
 
+export interface ImageState {
+  imageProps: ImageProps;
+  sourceImageSize: { width: number; height: number } | null;
+  canvasSize: { width: number; height: number };
+}
+
 interface UseImageLoaderProps {
   imageFile: File | null;
   canvasWidth: number;
   canvasHeight: number;
+  initialImageState?: ImageState | null;
 }
+
+const computeCoverProps = ({
+  imageWidth,
+  imageHeight,
+  canvasWidth,
+  canvasHeight,
+}: {
+  imageWidth: number;
+  imageHeight: number;
+  canvasWidth: number;
+  canvasHeight: number;
+}): ImageProps => {
+  const imageAspectRatio = imageWidth / imageHeight;
+  const canvasAspectRatio = canvasWidth / canvasHeight;
+
+  if (imageAspectRatio > canvasAspectRatio) {
+    const height = canvasHeight;
+    const width = canvasHeight * imageAspectRatio;
+    const x = (canvasWidth - width) / 2;
+    return {
+      x,
+      y: 0,
+      width,
+      height,
+      rotation: 0,
+      scaleX: 1,
+      scaleY: 1,
+    };
+  }
+
+  const width = canvasWidth;
+  const height = canvasWidth / imageAspectRatio;
+  const y = (canvasHeight - height) / 2;
+  return {
+    x: 0,
+    y,
+    width,
+    height,
+    rotation: 0,
+    scaleX: 1,
+    scaleY: 1,
+  };
+};
+
+const scaleImageProps = (
+  props: ImageProps,
+  fromSize: { width: number; height: number },
+  toSize: { width: number; height: number }
+): ImageProps => {
+  if (!fromSize.width || !fromSize.height) {
+    return props;
+  }
+
+  const scaleX = toSize.width / fromSize.width;
+  const scaleY = toSize.height / fromSize.height;
+
+  return {
+    ...props,
+    x: props.x * scaleX,
+    y: props.y * scaleY,
+    width: props.width * scaleX,
+    height: props.height * scaleY,
+  };
+};
 
 export function useImageLoader({
   imageFile,
   canvasWidth,
   canvasHeight,
+  initialImageState = null,
 }: UseImageLoaderProps) {
+  const debugLog = (...args: unknown[]) => {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[useImageLoader]", ...args);
+    }
+  };
+
   const [image, setImage] = useState<HTMLImageElement | null>(null);
-  const [sourceImageSize, setSourceImageSize] = useState<{
-    width: number;
-    height: number;
-  } | null>(null);
-  const [imageProps, setImageProps] = useState<ImageProps>({
-    x: 0,
-    y: 0,
-    width: 400,
-    height: 300,
-    rotation: 0,
-    scaleX: 1,
-    scaleY: 1,
-  });
+  const [sourceImageSize, setSourceImageSize] = useState<
+    { width: number; height: number } | null
+  >(initialImageState?.sourceImageSize ?? null);
+
+  const scaledInitialProps = useMemo(() => {
+    if (!initialImageState) return null;
+    debugLog("scaling initial props", {
+      originalCanvasSize: initialImageState.canvasSize,
+      targetCanvasSize: { width: canvasWidth, height: canvasHeight },
+    });
+    return scaleImageProps(initialImageState.imageProps, {
+      width: initialImageState.canvasSize.width,
+      height: initialImageState.canvasSize.height,
+    }, {
+      width: canvasWidth,
+      height: canvasHeight,
+    });
+  }, [initialImageState, canvasWidth, canvasHeight]);
+
+  const [imageProps, setImageProps] = useState<ImageProps | null>(
+    scaledInitialProps
+  );
 
   useEffect(() => {
-    if (imageFile) {
-      const img = new window.Image();
-      img.onload = () => {
-        setImage(img);
-        setSourceImageSize({
-          width: img.naturalWidth,
-          height: img.naturalHeight,
+    let isMounted = true;
+
+    if (!imageFile) {
+      setImage(null);
+      setSourceImageSize(initialImageState?.sourceImageSize ?? null);
+      setImageProps(scaledInitialProps);
+      debugLog("cleared image file", {
+        hasInitialState: !!initialImageState,
+      });
+      return;
+    }
+
+    const img = new window.Image();
+    img.onload = () => {
+      if (!isMounted) return;
+
+      debugLog("image loaded", {
+        naturalWidth: img.naturalWidth,
+        naturalHeight: img.naturalHeight,
+        scaledInitialProps,
+      });
+
+      const nextImageProps =
+        scaledInitialProps ??
+        computeCoverProps({
+          imageWidth: img.naturalWidth,
+          imageHeight: img.naturalHeight,
+          canvasWidth,
+          canvasHeight,
         });
 
-        // Calculate fill canvas dimensions (fill entire space while maintaining aspect ratio)
-        const imageAspectRatio = img.naturalWidth / img.naturalHeight;
-        const canvasAspectRatio = canvasWidth / canvasHeight;
+      setImageProps(nextImageProps);
+      setImage(img);
+      setSourceImageSize({
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+      });
 
-        let finalWidth: number;
-        let finalHeight: number;
-        let finalX: number;
-        let finalY: number;
+      debugLog("set image props from loader", {
+        nextImageProps,
+      });
+    };
 
-        if (imageAspectRatio > canvasAspectRatio) {
-          // Image is wider than canvas - fit to height and crop width
-          finalHeight = canvasHeight;
-          finalWidth = canvasHeight * imageAspectRatio;
-          finalX = (canvasWidth - finalWidth) / 2;
-          finalY = 0;
-        } else {
-          // Image is taller than canvas - fit to width and crop height
-          finalWidth = canvasWidth;
-          finalHeight = canvasWidth / imageAspectRatio;
-          finalX = 0;
-          finalY = (canvasHeight - finalHeight) / 2;
-        }
+    img.src = URL.createObjectURL(imageFile);
 
-        // Set initial position (small and centered)
-        const initialWidth = finalWidth * 0.2;
-        const initialHeight = finalHeight * 0.2;
-        const initialX = (canvasWidth - initialWidth) / 2;
-        const initialY = (canvasHeight - initialHeight) / 2;
-
-        setImageProps((prev) => ({
-          ...prev,
-          width: initialWidth,
-          height: initialHeight,
-          x: initialX,
-          y: initialY,
-        }));
-
-        // Animate to final size with springy animation using Konva tween
-        setTimeout(() => {
-          setImageProps((prev) => ({
-            ...prev,
-            width: finalWidth,
-            height: finalHeight,
-            x: finalX,
-            y: finalY,
-          }));
-        }, 100); // Small delay to ensure initial state is set
-      };
-      img.src = URL.createObjectURL(imageFile);
-
-      return () => {
-        URL.revokeObjectURL(img.src);
-      };
-    } else {
-      setImage(null);
-      setSourceImageSize(null);
-    }
-  }, [imageFile, canvasWidth, canvasHeight]);
+    return () => {
+      isMounted = false;
+      URL.revokeObjectURL(img.src);
+    };
+  }, [
+    imageFile,
+    canvasWidth,
+    canvasHeight,
+    scaledInitialProps,
+    initialImageState?.sourceImageSize,
+  ]);
 
   return {
     image,

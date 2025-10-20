@@ -8,6 +8,9 @@ import EditorWrapper from "./EditorWrapper";
 import type { EditorCanvasRef } from "../canvas/EditorCanvas";
 import ConfirmationPopup from "../ui/ConfirmationPopup";
 import Toast from "../ui/Toast";
+import { PRODUCT_DIMENSIONS, type ProductId } from "../constants";
+import type { ImageProps, ImageState } from "../hooks/useImageLoader";
+import KeycapCompletionModal from "../ui/KeycapCompletionModal";
 
 interface ProductCard {
   id: string;
@@ -23,56 +26,530 @@ interface ImageEditorProps {
   onBack: () => void;
 }
 
+interface KeycapImage {
+  id: string;
+  file: File;
+  previewUrl: string;
+  name: string;
+}
+
+const MAX_KEYCAP_IMAGES = 5;
+const COVERAGE_WARNING =
+  "Cuidado, la imagen no está llenando todo el producto. Ajustala usando los botones o movela manualmente para cubrir todo el espacio.";
+const KEYCAP_LIMIT_WARNING =
+  "Podés subir hasta 5 keycaps por tanda. Eliminá una o reiniciá para cargar nuevas.";
+const KEYCAP_VALIDATION_WARNING =
+  "Revisá que todas las keycaps cubran el área completa antes de guardarlas.";
+const KEYCAP_EXPORT_ERROR =
+  "Tuvimos un problema al preparar la descarga. Probá de nuevo.";
+
+const createImageId = () =>
+  typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `keycap-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const loadImageFromFile = (file: File) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new window.Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(img);
+    };
+
+    img.onerror = (event) => {
+      URL.revokeObjectURL(objectUrl);
+      reject(event);
+    };
+
+    img.src = objectUrl;
+  });
+
+const computeCoverProps = ({
+  imageWidth,
+  imageHeight,
+  canvasWidth,
+  canvasHeight,
+}: {
+  imageWidth: number;
+  imageHeight: number;
+  canvasWidth: number;
+  canvasHeight: number;
+}): ImageProps => {
+  const imageAspectRatio = imageWidth / imageHeight;
+  const canvasAspectRatio = canvasWidth / canvasHeight;
+
+  if (imageAspectRatio > canvasAspectRatio) {
+    const height = canvasHeight;
+    const width = canvasHeight * imageAspectRatio;
+    const x = (canvasWidth - width) / 2;
+    return {
+      x,
+      y: 0,
+      width,
+      height,
+      rotation: 0,
+      scaleX: 1,
+      scaleY: 1,
+    };
+  }
+
+  const width = canvasWidth;
+  const height = canvasWidth / imageAspectRatio;
+  const y = (canvasHeight - height) / 2;
+  return {
+    x: 0,
+    y,
+    width,
+    height,
+    rotation: 0,
+    scaleX: 1,
+    scaleY: 1,
+  };
+};
+
+const exportKeycapCanvas = async ({
+  file,
+  state,
+  design,
+}: {
+  file: File;
+  state?: ImageState;
+  design: { width: number; height: number };
+}) => {
+  if (typeof window === "undefined") {
+    throw new Error("Exportación disponible sólo en el navegador.");
+  }
+
+  const imageElement = await loadImageFromFile(file);
+  const intrinsicSize = {
+    width: imageElement.naturalWidth,
+    height: imageElement.naturalHeight,
+  };
+
+  const canvasSize = state?.canvasSize ?? {
+    width: design.width,
+    height: design.height,
+  };
+
+  const imageProps =
+    state?.imageProps ??
+    computeCoverProps({
+      imageWidth: intrinsicSize.width,
+      imageHeight: intrinsicSize.height,
+      canvasWidth: canvasSize.width,
+      canvasHeight: canvasSize.height,
+    });
+
+  const sourceImageSize = state?.sourceImageSize ?? intrinsicSize;
+
+  const scaleToDesign = design.width / canvasSize.width;
+
+  const placedWidthInDesign = imageProps.width * scaleToDesign;
+  const placedHeightInDesign = imageProps.height * scaleToDesign;
+
+  const scaleByWidth = sourceImageSize.width / Math.max(1, placedWidthInDesign);
+  const scaleByHeight =
+    sourceImageSize.height / Math.max(1, placedHeightInDesign);
+
+  const exportScale = Math.max(1, Math.min(scaleByWidth, scaleByHeight));
+
+  const exportWidth = Math.round(design.width * exportScale);
+  const exportHeight = Math.round(design.height * exportScale);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tempStage = new (window as any).Konva.Stage({
+    container: document.createElement("div"),
+    width: exportWidth,
+    height: exportHeight,
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tempLayer = new (window as any).Konva.Layer();
+  tempStage.add(tempLayer);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const background = new (window as any).Konva.Rect({
+    x: 0,
+    y: 0,
+    width: exportWidth,
+    height: exportHeight,
+    fill: "white",
+  });
+  tempLayer.add(background);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tempImage = new (window as any).Konva.Image({
+    x: imageProps.x * scaleToDesign * exportScale,
+    y: imageProps.y * scaleToDesign * exportScale,
+    width: imageProps.width * scaleToDesign * exportScale,
+    height: imageProps.height * scaleToDesign * exportScale,
+    image: imageElement,
+  });
+  tempLayer.add(tempImage);
+
+  tempLayer.draw();
+
+  const dataURL = tempStage.toDataURL({
+    mimeType: "image/png",
+    quality: 1,
+    pixelRatio: 1,
+  });
+
+  tempStage.destroy();
+
+  const response = await fetch(dataURL);
+  return response.blob();
+};
+
+const downloadBlob = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 1000);
+};
+
+const delay = (ms: number) =>
+  new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+
 export default function ImageEditor({
   productId,
   productCards,
   onBack,
 }: ImageEditorProps) {
+  const debugLog = useCallback((...args: unknown[]) => {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[ImageEditor]", ...args);
+    }
+  }, []);
+
+  const isKeycap = productId === "keycap-kda";
+  const canvasRef = useRef<EditorCanvasRef>(null);
+  const moreUploadsInputRef = useRef<HTMLInputElement>(null);
+  const previewUrlsRef = useRef<Set<string>>(new Set());
+
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
   const [canvasDataUrl, setCanvasDataUrl] = useState("");
   const [isImageValid, setIsImageValid] = useState(true);
+
+  const [keycapImages, setKeycapImages] = useState<KeycapImage[]>([]);
+  const [activeImageId, setActiveImageId] = useState<string | null>(null);
+  const [imageStates, setImageStates] = useState<Record<string, ImageState>>(
+    {}
+  );
+  const [validationMap, setValidationMap] = useState<Record<string, boolean>>(
+    {}
+  );
+  const [isSavingImages, setIsSavingImages] = useState(false);
+  const [isCompletionOpen, setIsCompletionOpen] = useState(false);
+
+  const [toastMessage, setToastMessage] = useState(COVERAGE_WARNING);
+  const [toastType, setToastType] = useState<"warning" | "error" | "success">(
+    "warning"
+  );
   const [showToast, setShowToast] = useState(false);
-  const canvasRef = useRef<EditorCanvasRef>(null);
 
   const currentProduct = productCards.find(
     (product) => product.id === productId
   );
 
-  const handleFileUpload = (file: File) => {
-    setUploadedFile(file);
-  };
+  const designSize = PRODUCT_DIMENSIONS[productId as ProductId];
 
-  const handleValidationChange = useCallback((isValid: boolean) => {
-    setIsImageValid(isValid);
+  const activeKeycap = isKeycap
+    ? keycapImages.find((image) => image.id === activeImageId) ?? null
+    : null;
 
-    // Show toast when validation fails
-    if (!isValid) {
-      setShowToast(true);
-    } else {
-      setShowToast(false);
-    }
+  const currentFile = isKeycap ? activeKeycap?.file ?? null : uploadedFile;
+
+  const initialImageState =
+    isKeycap && activeKeycap ? imageStates[activeKeycap.id] ?? null : null;
+
+  const remainingKeycapSlots = isKeycap
+    ? Math.max(0, MAX_KEYCAP_IMAGES - keycapImages.length)
+    : 0;
+
+  const canSaveKeycaps = isKeycap && keycapImages.length > 0;
+
+  const coverageWarning = useCallback(() => {
+    setToastType("warning");
+    setToastMessage(COVERAGE_WARNING);
+    setShowToast(true);
   }, []);
 
-  const handleConfirmImage = () => {
-    if (canvasRef.current) {
-      // Double-check validation before confirming
-      const isCovering = canvasRef.current.isImageFullyCovering();
+  const handleKeycapUploads = useCallback(
+    (files: File[]) => {
+      debugLog("handleKeycapUploads invoked", {
+        incomingFiles: files.length,
+      });
+      if (!files.length) return;
 
-      if (!isCovering) {
+      const currentCount = keycapImages.length;
+      const slots = MAX_KEYCAP_IMAGES - currentCount;
+
+      if (slots <= 0) {
+        setToastType("warning");
+        setToastMessage(KEYCAP_LIMIT_WARNING);
         setShowToast(true);
         return;
       }
 
-      const dataUrl = canvasRef.current.getCanvasDataUrl();
-      setCanvasDataUrl(dataUrl);
-      setIsConfirmationOpen(true);
+      const acceptedFiles = files.slice(0, slots);
+      const accepted = acceptedFiles.map((file, index) => {
+        const id = createImageId();
+        const previewUrl = URL.createObjectURL(file);
+        previewUrlsRef.current.add(previewUrl);
+        return {
+          id,
+          file,
+          previewUrl,
+          name: `Keycap ${currentCount + index + 1}`,
+        };
+      });
+
+      if ((!currentCount || !activeImageId) && accepted.length > 0) {
+        setActiveImageId(accepted[0].id);
+      }
+
+      if (files.length > slots) {
+        setToastType("warning");
+        setToastMessage(KEYCAP_LIMIT_WARNING);
+        setShowToast(true);
+      }
+
+      setKeycapImages((prev) => [...prev, ...accepted]);
+
+      if (designSize) {
+        void Promise.all(
+          accepted.map(async ({ file, id }) => {
+            const imageElement = await loadImageFromFile(file);
+            const state: ImageState = {
+              imageProps: computeCoverProps({
+                imageWidth: imageElement.naturalWidth,
+                imageHeight: imageElement.naturalHeight,
+                canvasWidth: designSize.width,
+                canvasHeight: designSize.height,
+              }),
+              sourceImageSize: {
+                width: imageElement.naturalWidth,
+                height: imageElement.naturalHeight,
+              },
+              canvasSize: {
+                width: designSize.width,
+                height: designSize.height,
+              },
+            };
+
+            return { id, state };
+          })
+        ).then((results) => {
+          if (!results.length) return;
+          debugLog("precomputed keycap states", results);
+
+          setImageStates((prev) => {
+            const next = { ...prev };
+            for (const { id, state } of results) {
+              next[id] = state;
+            }
+            return next;
+          });
+
+          setValidationMap((prev) => {
+            const next = { ...prev };
+            results.forEach(({ id }) => {
+              next[id] = true;
+            });
+            return next;
+          });
+        });
+      }
+    },
+    [activeImageId, designSize, keycapImages.length, debugLog]
+  );
+
+  const handleFileUpload = (file: File) => {
+    if (isKeycap) {
+      handleKeycapUploads([file]);
+    } else {
+      setUploadedFile(file);
     }
   };
+
+  const handleValidationChange = useCallback(
+    (isValid: boolean) => {
+      if (isKeycap && activeImageId) {
+        setValidationMap((prev) => ({
+          ...prev,
+          [activeImageId]: isValid,
+        }));
+      } else {
+        setIsImageValid(isValid);
+      }
+
+      if (!isValid) {
+        coverageWarning();
+      } else {
+        setShowToast(false);
+      }
+    },
+    [activeImageId, coverageWarning, isKeycap]
+  );
+
+  const handleImageStateChange = useCallback(
+    (state: ImageState) => {
+      if (!isKeycap || !activeImageId) return;
+      setImageStates((prev) => ({
+        ...prev,
+        [activeImageId]: state,
+      }));
+    },
+    [activeImageId, isKeycap]
+  );
+
+  const handleConfirmImage = () => {
+    if (!canvasRef.current) return;
+
+    const isCovering = canvasRef.current.isImageFullyCovering();
+    if (!isCovering) {
+      coverageWarning();
+      return;
+    }
+
+    const dataUrl = canvasRef.current.getCanvasDataUrl();
+    setCanvasDataUrl(dataUrl);
+    setIsConfirmationOpen(true);
+  };
+
+  const resetKeycapSession = useCallback(() => {
+    previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    previewUrlsRef.current.clear();
+    setKeycapImages([]);
+    setActiveImageId(null);
+    setImageStates({});
+    setValidationMap({});
+    setIsSavingImages(false);
+    setIsCompletionOpen(false);
+    setShowToast(false);
+  }, []);
+
+  const handleSaveKeycaps = useCallback(async () => {
+    if (!isKeycap || !designSize) return;
+    if (!keycapImages.length) return;
+
+    if (!canSaveKeycaps) {
+      setToastType("warning");
+      setToastMessage(KEYCAP_VALIDATION_WARNING);
+      setShowToast(true);
+      return;
+    }
+
+    const invalidImage = keycapImages.find(
+      (image) => validationMap[image.id] === false
+    );
+    if (invalidImage) {
+      setActiveImageId(invalidImage.id);
+      setToastType("warning");
+      setToastMessage(KEYCAP_VALIDATION_WARNING);
+      setShowToast(true);
+      return;
+    }
+
+    setIsSavingImages(true);
+    try {
+      const rendered = [];
+      for (let index = 0; index < keycapImages.length; index += 1) {
+        const image = keycapImages[index];
+        const blob = await exportKeycapCanvas({
+          file: image.file,
+          state: imageStates[image.id],
+          design: designSize,
+        });
+        rendered.push({
+          blob,
+          filename: `keycap-${index + 1}.png`,
+        });
+      }
+
+      if (rendered.length === 1) {
+        downloadBlob(rendered[0].blob, rendered[0].filename);
+      } else {
+        for (const { blob, filename } of rendered) {
+          downloadBlob(blob, filename);
+          await delay(200); // brief pause keeps browsers from batching downloads incorrectly
+        }
+      }
+
+      setToastType("success");
+      setToastMessage("Descarga lista. Revisá tus archivos para continuar.");
+      setShowToast(true);
+      setIsCompletionOpen(true);
+    } catch (error) {
+      setToastType("error");
+      setToastMessage(KEYCAP_EXPORT_ERROR);
+      setShowToast(true);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Error exportando keycaps:", error);
+      }
+    } finally {
+      setIsSavingImages(false);
+    }
+  }, [
+    canSaveKeycaps,
+    designSize,
+    imageStates,
+    isKeycap,
+    keycapImages,
+    validationMap,
+  ]);
+
+  useEffect(() => {
+    if (!isKeycap || keycapImages.length === 0) {
+      if (isKeycap && activeImageId) {
+        setActiveImageId(null);
+      }
+      return;
+    }
+
+    const activeExists = keycapImages.some(
+      (image) => image.id === activeImageId
+    );
+    if (!activeExists) {
+      setActiveImageId(keycapImages[0].id);
+    }
+  }, [isKeycap, keycapImages, activeImageId]);
+
+  const handleCompletionReset = useCallback(() => {
+    resetKeycapSession();
+  }, [resetKeycapSession]);
+
+  const handleCompletionRedirect = useCallback(() => {
+    const redirectUrl =
+      currentProduct?.redirectUrl ||
+      "https://www.onicaps.online/productos/keycap-pro-personalizada/";
+    window.open(redirectUrl, "_blank");
+    resetKeycapSession();
+  }, [currentProduct?.redirectUrl, resetKeycapSession]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  useEffect(
+    () => () => {
+      previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      previewUrlsRef.current.clear();
+    },
+    []
+  );
 
   return (
     <motion.div
@@ -167,21 +644,102 @@ export default function ImageEditor({
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8 md:px-8">
-        <Disclaimer isVisible={true} />
+        <Disclaimer isVisible={true} productId={productId} />
 
-        {!uploadedFile ? (
-          <DragDropArea onFileUpload={handleFileUpload} />
+        {(!currentFile && !isKeycap) ||
+        (isKeycap && keycapImages.length === 0) ? (
+          <DragDropArea
+            onFileUpload={!isKeycap ? handleFileUpload : undefined}
+            onFilesUpload={isKeycap ? handleKeycapUploads : undefined}
+            allowMultiple={isKeycap}
+            maxFiles={MAX_KEYCAP_IMAGES}
+            remainingSlots={isKeycap ? remainingKeycapSlots : undefined}
+          />
         ) : (
           <div className="space-y-8">
-            {/* Canvas */}
             <EditorWrapper
-              imageFile={uploadedFile}
+              imageFile={currentFile}
               productId={productId}
               canvasRef={canvasRef}
               onValidationChange={handleValidationChange}
+              initialImageState={initialImageState}
+              onImageStateChange={isKeycap ? handleImageStateChange : undefined}
             />
 
-            {/* Action Buttons */}
+            {isKeycap && keycapImages.length > 0 && (
+              <motion.div
+                className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-gray-700">
+                    Keycaps cargadas
+                  </h3>
+                  {remainingKeycapSlots > 0 && (
+                    <>
+                      <input
+                        ref={moreUploadsInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={(event) => {
+                          const files = event.target.files;
+                          if (!files) return;
+                          handleKeycapUploads(Array.from(files));
+                          event.target.value = "";
+                        }}
+                      />
+                      <motion.button
+                        onClick={() => moreUploadsInputRef.current?.click()}
+                        className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors duration-200"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        Agregar más imágenes ({remainingKeycapSlots} disp.)
+                      </motion.button>
+                    </>
+                  )}
+                </div>
+
+                <div className="mx-auto flex w-full max-w-[34rem] flex-wrap justify-center gap-3 pb-2">
+                  {keycapImages.map((image, index) => {
+                    const isActive = image.id === activeImageId;
+                    const isValid = validationMap[image.id] !== false;
+                    const borderClass = isActive
+                      ? "border-[#7a4dff] shadow-lg"
+                      : isValid
+                      ? "border-gray-200 hover:border-[#7a4dff]/60"
+                      : "border-red-300 hover:border-red-400";
+                    return (
+                      <button
+                        key={image.id}
+                        onClick={() => setActiveImageId(image.id)}
+                        className={`relative flex-shrink-0 w-24 h-24 rounded-xl overflow-hidden border-2 transition-all duration-200 ${borderClass}`}
+                        title={`Keycap ${index + 1}`}
+                      >
+                        <img
+                          src={image.previewUrl}
+                          alt={image.name}
+                          className="w-full h-full object-cover"
+                        />
+                        <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[11px] font-semibold text-white bg-black/60 px-2 py-0.5 rounded-full">
+                          #{index + 1}
+                        </span>
+                        {validationMap[image.id] === false && (
+                          <span className="absolute top-2 right-2 text-[10px] font-semibold text-white bg-red-500/90 px-1.5 py-0.5 rounded-full">
+                            Ajustar
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+
             <motion.div
               className="flex justify-center gap-3 sm:gap-4"
               initial={{ opacity: 0, y: 20 }}
@@ -192,28 +750,62 @@ export default function ImageEditor({
                 ease: [0.32, 0.72, 0, 1],
               }}
             >
-              <motion.button
-                onClick={() => setUploadedFile(null)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-200 text-sm sm:text-base whitespace-nowrap"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                Cambiar Imagen
-              </motion.button>
+              {isKeycap ? (
+                <>
+                  <motion.button
+                    onClick={resetKeycapSession}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-200 text-sm sm:text-base whitespace-nowrap"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    disabled={isSavingImages}
+                  >
+                    Reiniciar tanda
+                  </motion.button>
 
-              <motion.button
-                onClick={handleConfirmImage}
-                disabled={!isImageValid}
-                className={`px-5 py-2 rounded-xl font-medium transition-colors duration-200 text-sm sm:text-base whitespace-nowrap ${
-                  isImageValid
-                    ? "bg-[#7a4dff] text-white hover:bg-[#6b42e6]"
-                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                }`}
-                whileHover={{ scale: isImageValid ? 1.02 : 1 }}
-                whileTap={{ scale: isImageValid ? 0.98 : 1 }}
-              >
-                Confirmar Imagen
-              </motion.button>
+                  <motion.button
+                    onClick={handleSaveKeycaps}
+                    disabled={!canSaveKeycaps || isSavingImages}
+                    className={`px-5 py-2 rounded-xl font-medium transition-colors duration-200 text-sm sm:text-base whitespace-nowrap ${
+                      !canSaveKeycaps || isSavingImages
+                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        : "bg-[#7a4dff] text-white hover:bg-[#6b42e6]"
+                    }`}
+                    whileHover={{
+                      scale: !canSaveKeycaps || isSavingImages ? 1 : 1.02,
+                    }}
+                    whileTap={{
+                      scale: !canSaveKeycaps || isSavingImages ? 1 : 0.98,
+                    }}
+                  >
+                    {isSavingImages ? "Guardando..." : "Guardar imagen"}
+                  </motion.button>
+                </>
+              ) : (
+                <>
+                  <motion.button
+                    onClick={() => setUploadedFile(null)}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors duration-200 text-sm sm:text-base whitespace-nowrap"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    Cambiar imagen
+                  </motion.button>
+
+                  <motion.button
+                    onClick={handleConfirmImage}
+                    disabled={!isImageValid}
+                    className={`px-5 py-2 rounded-xl font-medium transition-colors duration-200 text-sm sm:text-base whitespace-nowrap ${
+                      isImageValid
+                        ? "bg-[#7a4dff] text-white hover:bg-[#6b42e6]"
+                        : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    }`}
+                    whileHover={{ scale: isImageValid ? 1.02 : 1 }}
+                    whileTap={{ scale: isImageValid ? 0.98 : 1 }}
+                  >
+                    Confirmar imagen
+                  </motion.button>
+                </>
+              )}
             </motion.div>
           </div>
         )}
@@ -289,19 +881,27 @@ export default function ImageEditor({
         </motion.div>
       </footer>
 
-      {/* Confirmation Popup */}
-      <ConfirmationPopup
-        isOpen={isConfirmationOpen}
-        onClose={() => setIsConfirmationOpen(false)}
-        currentProduct={currentProduct}
-        canvasDataUrl={canvasDataUrl}
-      />
+      {!isKeycap && (
+        <ConfirmationPopup
+          isOpen={isConfirmationOpen}
+          onClose={() => setIsConfirmationOpen(false)}
+          currentProduct={currentProduct}
+          canvasDataUrl={canvasDataUrl}
+        />
+      )}
 
-      {/* Toast Warning */}
+      {isKeycap && (
+        <KeycapCompletionModal
+          isOpen={isCompletionOpen}
+          onReset={handleCompletionReset}
+          onRedirect={handleCompletionRedirect}
+        />
+      )}
+
       <Toast
         isVisible={showToast}
-        message="Cuidado, la imagen no está llenando todo el pad. Ajustala usando los botones o movela manualmente para que cubra todo el espacio."
-        type="warning"
+        message={toastMessage}
+        type={toastType}
         onClose={() => setShowToast(false)}
         duration={6000}
       />

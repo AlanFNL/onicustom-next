@@ -4,10 +4,20 @@ import { motion } from 'framer-motion'
 import { useState, useRef, useCallback } from 'react'
 
 interface DragDropAreaProps {
-  onFileUpload: (file: File) => void
+  onFileUpload?: (file: File) => void
+  onFilesUpload?: (files: File[]) => void
+  allowMultiple?: boolean
+  maxFiles?: number
+  remainingSlots?: number
 }
 
-export default function DragDropArea({ onFileUpload }: DragDropAreaProps) {
+export default function DragDropArea({
+  onFileUpload,
+  onFilesUpload,
+  allowMultiple = false,
+  maxFiles = 1,
+  remainingSlots,
+}: DragDropAreaProps) {
   const [isDragOver, setIsDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -23,22 +33,55 @@ export default function DragDropArea({ onFileUpload }: DragDropAreaProps) {
     }
   }, [])
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragOver(false)
-    
-    const files = Array.from(e.dataTransfer.files)
-    const imageFile = files.find(file => file.type.startsWith('image/'))
-    
-    if (imageFile) {
-      onFileUpload(imageFile)
-    }
-  }, [onFileUpload])
+  const pickEligibleImages = useCallback(
+    (fileList: FileList | File[]) => {
+      const files = Array.from(fileList).filter((file) =>
+        file.type.startsWith('image/')
+      )
+
+      if (!files.length) return null
+
+      if (allowMultiple) {
+        const limit = typeof remainingSlots === 'number' ? Math.max(0, remainingSlots) : maxFiles
+        return files.slice(0, limit || maxFiles)
+      }
+
+      return [files[0]]
+    },
+    [allowMultiple, maxFiles, remainingSlots]
+  )
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      setIsDragOver(false)
+
+      const picked = pickEligibleImages(e.dataTransfer.files)
+
+      if (!picked || picked.length === 0) {
+        return
+      }
+
+      if (allowMultiple && onFilesUpload) {
+        onFilesUpload(picked)
+      } else if (!allowMultiple && onFileUpload) {
+        onFileUpload(picked[0])
+      }
+    },
+    [allowMultiple, onFileUpload, onFilesUpload, pickEligibleImages]
+  )
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file && file.type.startsWith('image/')) {
-      onFileUpload(file)
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    const picked = pickEligibleImages(files)
+    if (!picked || picked.length === 0) return
+
+    if (allowMultiple && onFilesUpload) {
+      onFilesUpload(picked)
+    } else if (!allowMultiple && onFileUpload) {
+      onFileUpload(picked[0])
     }
   }
 
@@ -70,6 +113,7 @@ export default function DragDropArea({ onFileUpload }: DragDropAreaProps) {
         ref={fileInputRef}
         type="file"
         accept="image/*"
+        multiple={allowMultiple}
         onChange={handleFileSelect}
         className="hidden"
       />
@@ -99,14 +143,25 @@ export default function DragDropArea({ onFileUpload }: DragDropAreaProps) {
         
         <div className="text-center space-y-2">
           <p className={`text-lg font-medium ${isDragOver ? 'text-blue-700' : 'text-gray-700'}`}>
-            {isDragOver ? '¡Soltá tu imagen aquí!' : 'Arrastrá tu imagen aquí'}
+            {isDragOver
+              ? allowMultiple
+                ? '¡Soltá tus imágenes acá!'
+                : '¡Soltá tu imagen acá!'
+              : allowMultiple
+                ? 'Arrastrá tus imágenes acá'
+                : 'Arrastrá tu imagen acá'}
           </p>
           <p className="text-sm text-gray-500">
-            o hacé clic para seleccionar un archivo
+            {allowMultiple ? 'o hacé clic para elegir hasta 5 archivos' : 'o hacé clic para seleccionar un archivo'}
           </p>
           <p className="text-xs text-gray-400">
             PNG, JPG, WEBP hasta 10MB
           </p>
+          {allowMultiple && typeof remainingSlots === 'number' && (
+            <p className="text-xs text-gray-500">
+              Disponibles: {remainingSlots}
+            </p>
+          )}
         </div>
       </div>
     </motion.div>

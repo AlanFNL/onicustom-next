@@ -33,12 +33,12 @@ function App() {
     },
     {
       id: "keycap-kda",
-      title: "Keycap XDA",
+      title: "Keycap XDA $6.500",
       image: "/assets/keycap.webp",
       description: "Keycaps personalizados de alta calidad",
       redirectUrl:
         "https://www.onicaps.online/productos/keycap-pro-personalizada/",
-      disabled: true,
+      disabled: false,
     },
     {
       id: "spacebar",

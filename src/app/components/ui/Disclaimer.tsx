@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
+import { PRODUCT_DISCLAIMERS, type ProductId } from "../constants";
 
 /* === Calculadora de fecha de despacho === */
 function calcDispatchFriday(
@@ -160,10 +161,27 @@ export function DispatchCalculator() {
 
 interface DisclaimerProps {
   isVisible: boolean;
+  productId?: string;
 }
 
-export default function Disclaimer({ isVisible }: DisclaimerProps) {
+export default function Disclaimer({
+  isVisible,
+  productId = "mousepad-90x40",
+}: DisclaimerProps) {
   const [showVideo, setShowVideo] = useState(false);
+
+  const resolvedProductId = (PRODUCT_DISCLAIMERS[
+    productId as ProductId
+  ]
+    ? (productId as ProductId)
+    : "mousepad-90x40") as ProductId;
+
+  const defaultDisclaimer =
+    PRODUCT_DISCLAIMERS["mousepad-90x40"] ||
+    "Subir una imagen de baja calidad resultará en una impresión de baja calidad. Imprimimos lo que nos enviás. Pasamos a producción todos los lunes y despachamos todos los viernes. Significa que si compras un MARTES, pasa a producción el LUNES siguiente y se despacha el VIERNES. Luego de subir y confirmar la imagen, el editor te redireccionará a la web para completar tu compra.";
+  const disclaimerText =
+    PRODUCT_DISCLAIMERS[resolvedProductId] || defaultDisclaimer;
+  const showDispatchCalculator = resolvedProductId.startsWith("mousepad");
 
   return (
     <motion.div
@@ -231,37 +249,12 @@ export default function Disclaimer({ isVisible }: DisclaimerProps) {
                   <h3 className="text-base md:text-lg font-medium text-amber-800 mb-2 md:mb-3">
                     INFORMACIÓN IMPORTANTE, ¡POR FAVOR LEÉ!
                   </h3>
-                  <div className="space-y-2 md:space-y-3 text-amber-700">
-                    {/* <p className="text-xs md:text-sm leading-relaxed">
-                      Te recomendamos una imagen de resolución 4K o 300 DPI.
-                    </p>
-                    <p className="text-xs md:text-sm leading-relaxed">
-                      Mantené cualquier imagen o texto importante dentro del{" "}
-                      <span className="font-medium text-green-600">
-                        área verde
-                      </span>
-                      . Cualquier cosa fuera de esta área puede perderse en el
-                      proceso de impresión.
-                    </p> */}
-                    {/* <p className="text-xs md:text-sm leading-relaxed">
-                      Si no rellenás toda el área de carga y solo llegás hasta
-                      la línea verde, el producto final tendrá un borde blanco.
-                    </p> */}
+                  <div className="space-y-3 text-amber-700">
                     <p className="text-xs md:text-sm leading-relaxed font-medium">
-                      Subir una imagen de baja calidad resultará en una
-                      impresión de baja calidad. Imprimimos lo que nos enviás.
-                    </p>
-                    <p className="text-xs md:text-sm leading-relaxed font-medium">
-                      Pasamos a produccion todos los lunes y despachamos todos
-                      los viernes. Significa que si compras un MARTES pasa a
-                      produccion el LUNES siguiente y se despacha el VIERNES.
-                    </p>
-                    <p className="text-xs md:text-sm leading-relaxed font-medium">
-                      Luego de subir y confirmar la imagen, el editor te
-                      redireccionara a la web para completar tu compra.
+                      {disclaimerText}
                     </p>
 
-                    <DispatchCalculator />
+                    {showDispatchCalculator && <DispatchCalculator />}
 
                     {/* Tutorial Section */}
                     <div className="mt-6 pt-6 border-t border-amber-200">

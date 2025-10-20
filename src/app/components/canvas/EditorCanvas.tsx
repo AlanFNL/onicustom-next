@@ -6,11 +6,14 @@ import {
   useCallback,
   forwardRef,
   useImperativeHandle,
-  useState,
   useEffect,
 } from "react";
 import { useResponsiveCanvas } from "../hooks/useResponsiveCanvas";
-import { useImageLoader } from "../hooks/useImageLoader";
+import {
+  useImageLoader,
+  type ImageProps,
+  type ImageState,
+} from "../hooks/useImageLoader";
 import { useCanvasState } from "../hooks/useCanvasState";
 import CanvasStage from "./CanvasStage";
 import ImageControls from "./controls/ImageControls";
@@ -21,7 +24,39 @@ interface EditorCanvasProps {
   imageFile: File | null;
   productId: string;
   onValidationChange?: (isValid: boolean) => void;
+  initialImageState?: ImageState | null;
+  onImageStateChange?: (state: ImageState) => void;
 }
+
+const imageStatesEqual = (a: ImageState | null, b: ImageState | null) => {
+  if (a === b) return true;
+  if (!a || !b) return false;
+
+  const propsA = a.imageProps;
+  const propsB = b.imageProps;
+
+  const propsEqual =
+    propsA.x === propsB.x &&
+    propsA.y === propsB.y &&
+    propsA.width === propsB.width &&
+    propsA.height === propsB.height &&
+    propsA.rotation === propsB.rotation &&
+    propsA.scaleX === propsB.scaleX &&
+    propsA.scaleY === propsB.scaleY;
+
+  const sourceEqual =
+    (a.sourceImageSize === null && b.sourceImageSize === null) ||
+    (a.sourceImageSize !== null &&
+      b.sourceImageSize !== null &&
+      a.sourceImageSize.width === b.sourceImageSize.width &&
+      a.sourceImageSize.height === b.sourceImageSize.height);
+
+  const canvasEqual =
+    a.canvasSize.width === b.canvasSize.width &&
+    a.canvasSize.height === b.canvasSize.height;
+
+  return propsEqual && sourceEqual && canvasEqual;
+};
 
 export interface EditorCanvasRef {
   getCanvasDataUrl: () => string;
@@ -29,10 +64,30 @@ export interface EditorCanvasRef {
 }
 
 const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
-  ({ imageFile, productId, onValidationChange }, ref) => {
+  (
+    {
+      imageFile,
+      productId,
+      onValidationChange,
+      initialImageState = null,
+      onImageStateChange,
+    },
+    ref
+  ) => {
+    const debugLog = (...args: unknown[]) => {
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[EditorCanvas]", ...args);
+      }
+    };
+
     const stageRef = useRef<unknown>(null);
     const imageRef = useRef<HTMLImageElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const lastLoadedFileRef = useRef<File | null>(imageFile ?? null);
+    const lastSentStateRef = useRef<ImageState | null>(null);
+    const lastInitialStateRef = useRef<ImageState | null>(initialImageState);
+    const autoCoverPendingRef = useRef(true);
+    const userInteractedRef = useRef(false);
 
     // Movement constraint state - Temporarily commented out
     // const [disableXMovement, setDisableXMovement] = useState(false);
@@ -47,6 +102,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
         imageFile,
         canvasWidth: displayWidth,
         canvasHeight: displayHeight,
+        initialImageState,
       });
     const {
       isSelected,
@@ -73,7 +129,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
 
     // Image coverage validation
     const checkImageCoverage = useCallback(() => {
-      if (!image) return false;
+      if (!image || !imageProps) return false;
 
       const tolerance = 1; // 1px tolerance for floating point precision
       const coversLeft = imageProps.x <= tolerance;
@@ -88,15 +144,167 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
 
     // Notify parent of validation state changes
     useEffect(() => {
-      if (onValidationChange && image) {
+      if (onValidationChange && image && imageProps) {
         const isValid = checkImageCoverage();
         onValidationChange(isValid);
       }
     }, [imageProps, image, checkImageCoverage, onValidationChange]);
 
+    useEffect(() => {
+      if (!image || !imageProps || !onImageStateChange) return;
+
+      const nextState: ImageState = {
+        imageProps,
+        sourceImageSize,
+        canvasSize: { width: displayWidth, height: displayHeight },
+      };
+
+      if (imageStatesEqual(lastSentStateRef.current, nextState)) {
+        return;
+      }
+
+      lastSentStateRef.current = nextState;
+      onImageStateChange(nextState);
+    }, [
+      image,
+      imageProps,
+      sourceImageSize,
+      displayWidth,
+      displayHeight,
+      onImageStateChange,
+    ]);
+
+    const applyCoverFill = useCallback(
+      (options?: { showGuides?: boolean }) => {
+        if (!image || !sourceImageSize) return;
+
+        const imageAspectRatio = sourceImageSize.width / sourceImageSize.height;
+        const canvasAspectRatio = displayWidth / displayHeight;
+
+        let newWidth: number;
+        let newHeight: number;
+        let newX: number;
+        let newY: number;
+
+        if (imageAspectRatio > canvasAspectRatio) {
+          // Image is wider than canvas - fit to height and crop width
+          newHeight = displayHeight;
+          newWidth = displayHeight * imageAspectRatio;
+          newX = (displayWidth - newWidth) / 2;
+          newY = 0;
+        } else {
+          // Image is taller than canvas - fit to width and crop height
+          newWidth = displayWidth;
+          newHeight = displayWidth / imageAspectRatio;
+          newX = 0;
+          newY = (displayHeight - newHeight) / 2;
+        }
+
+        debugLog("applyCoverFill calculated props", {
+          newX,
+          newY,
+          newWidth,
+          newHeight,
+          imageAspectRatio,
+          canvasAspectRatio,
+        });
+
+        setImageProps({
+          x: newX,
+          y: newY,
+          width: newWidth,
+          height: newHeight,
+          rotation: 0,
+          scaleX: 1,
+          scaleY: 1,
+        });
+
+        if (options?.showGuides !== false) {
+          showCenteringGuidesTemporarily();
+        }
+      },
+      [
+        image,
+        sourceImageSize,
+        displayWidth,
+        displayHeight,
+        setImageProps,
+        showCenteringGuidesTemporarily,
+      ]
+    );
+
+    useEffect(() => {
+      if (!imageStatesEqual(lastInitialStateRef.current, initialImageState ?? null)) {
+        lastInitialStateRef.current = initialImageState ?? null;
+        autoCoverPendingRef.current = true;
+        if (!initialImageState) {
+          userInteractedRef.current = false;
+        }
+        debugLog("initialImageState changed", {
+          hasState: !!initialImageState,
+          autoCoverPending: autoCoverPendingRef.current,
+        });
+      }
+    }, [initialImageState]);
+
+    useEffect(() => {
+      debugLog("imageFile changed", {
+        fileChanged: imageFile !== lastLoadedFileRef.current,
+        hasImageFile: !!imageFile,
+      });
+      if (imageFile && imageFile !== lastLoadedFileRef.current) {
+        lastLoadedFileRef.current = imageFile;
+        autoCoverPendingRef.current = true;
+        userInteractedRef.current = false;
+        lastSentStateRef.current = null;
+      } else if (!imageFile) {
+        lastLoadedFileRef.current = null;
+        lastSentStateRef.current = null;
+        autoCoverPendingRef.current = false;
+        userInteractedRef.current = false;
+      }
+    }, [imageFile]);
+
+    useEffect(() => {
+      debugLog("image loader state updated", {
+        hasImage: !!image,
+        hasImageProps: !!imageProps,
+        sourceImageSize,
+        autoCoverPending: autoCoverPendingRef.current,
+      });
+    }, [image, imageProps, sourceImageSize]);
+
+    useEffect(() => {
+      if (!image || !imageProps || !sourceImageSize) {
+        return;
+      }
+
+      const isCovering = checkImageCoverage();
+      const shouldEnforce =
+        autoCoverPendingRef.current || (!isCovering && !userInteractedRef.current);
+
+      if (!shouldEnforce) {
+        return;
+      }
+
+      autoCoverPendingRef.current = false;
+      debugLog("enforcing cover fill", {
+        isCovering,
+        userInteracted: userInteractedRef.current,
+      });
+      applyCoverFill({ showGuides: false });
+    }, [
+      image,
+      imageProps,
+      sourceImageSize,
+      applyCoverFill,
+      checkImageCoverage,
+    ]);
+
     // Auto-adjustment functions
     const handleFillCanvas = useCallback(() => {
       if (!image) return;
+      userInteractedRef.current = true;
 
       // Fill the entire canvas without respecting aspect ratio
       setImageProps({
@@ -121,6 +329,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
 
     const handleFillCanvasAspect = useCallback(() => {
       if (!image || !sourceImageSize) return;
+      userInteractedRef.current = true;
 
       const imageAspectRatio = sourceImageSize.width / sourceImageSize.height;
       const canvasAspectRatio = displayWidth / displayHeight;
@@ -166,54 +375,13 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
     ]);
 
     const handleFillCanvasLarger = useCallback(() => {
-      if (!image || !sourceImageSize) return;
-
-      const imageAspectRatio = sourceImageSize.width / sourceImageSize.height;
-      const canvasAspectRatio = displayWidth / displayHeight;
-
-      let newWidth: number;
-      let newHeight: number;
-      let newX: number;
-      let newY: number;
-
-      if (imageAspectRatio > canvasAspectRatio) {
-        // Image is wider than canvas - fit to height and crop width
-        newHeight = displayHeight;
-        newWidth = displayHeight * imageAspectRatio;
-        newX = (displayWidth - newWidth) / 2;
-        newY = 0;
-      } else {
-        // Image is taller than canvas - fit to width and crop height
-        newWidth = displayWidth;
-        newHeight = displayWidth / imageAspectRatio;
-        newX = 0;
-        newY = (displayHeight - newHeight) / 2;
-      }
-
-      setImageProps({
-        x: newX,
-        y: newY,
-        width: newWidth,
-        height: newHeight,
-        rotation: 0,
-        scaleX: 1,
-        scaleY: 1,
-      });
-
-      // Show centering guides to indicate the change
-      showCenteringGuidesTemporarily();
-    }, [
-      image,
-      sourceImageSize,
-      displayWidth,
-      displayHeight,
-      setImageProps,
-      showCenteringGuidesTemporarily,
-    ]);
+      userInteractedRef.current = true;
+      applyCoverFill();
+    }, [applyCoverFill]);
 
     // Alignment functions
     const handleAlignLeft = useCallback(() => {
-      if (!image || !sourceImageSize) return;
+      if (!image || !sourceImageSize || !imageProps) return;
 
       const imageAspectRatio = sourceImageSize.width / sourceImageSize.height;
       const currentHeight = imageProps.height;
@@ -222,7 +390,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
       const newY = imageProps.y;
 
       setImageProps((prev) => ({
-        ...prev,
+        ...((prev ?? imageProps) as ImageProps),
         x: newX,
         y: newY,
         width: newWidth,
@@ -238,7 +406,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
     ]);
 
     const handleAlignCenter = useCallback(() => {
-      if (!image || !sourceImageSize) return;
+      if (!image || !sourceImageSize || !imageProps) return;
 
       const imageAspectRatio = sourceImageSize.width / sourceImageSize.height;
       const currentHeight = imageProps.height;
@@ -247,7 +415,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
       const newY = imageProps.y;
 
       setImageProps((prev) => ({
-        ...prev,
+        ...((prev ?? imageProps) as ImageProps),
         x: newX,
         y: newY,
         width: newWidth,
@@ -264,7 +432,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
     ]);
 
     const handleAlignRight = useCallback(() => {
-      if (!image || !sourceImageSize) return;
+      if (!image || !sourceImageSize || !imageProps) return;
 
       const imageAspectRatio = sourceImageSize.width / sourceImageSize.height;
       const currentHeight = imageProps.height;
@@ -273,7 +441,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
       const newY = imageProps.y;
 
       setImageProps((prev) => ({
-        ...prev,
+        ...((prev ?? imageProps) as ImageProps),
         x: newX,
         y: newY,
         width: newWidth,
@@ -290,7 +458,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
     ]);
 
     const handleAlignTop = useCallback(() => {
-      if (!image || !sourceImageSize) return;
+      if (!image || !sourceImageSize || !imageProps) return;
 
       const imageAspectRatio = sourceImageSize.width / sourceImageSize.height;
       const currentWidth = imageProps.width;
@@ -299,7 +467,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
       const newY = 0;
 
       setImageProps((prev) => ({
-        ...prev,
+        ...((prev ?? imageProps) as ImageProps),
         x: newX,
         y: newY,
         height: newHeight,
@@ -315,7 +483,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
     ]);
 
     const handleAlignMiddle = useCallback(() => {
-      if (!image || !sourceImageSize) return;
+      if (!image || !sourceImageSize || !imageProps) return;
 
       const imageAspectRatio = sourceImageSize.width / sourceImageSize.height;
       const currentWidth = imageProps.width;
@@ -324,7 +492,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
       const newY = (displayHeight - newHeight) / 2;
 
       setImageProps((prev) => ({
-        ...prev,
+        ...((prev ?? imageProps) as ImageProps),
         x: newX,
         y: newY,
         height: newHeight,
@@ -341,7 +509,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
     ]);
 
     const handleAlignBottom = useCallback(() => {
-      if (!image || !sourceImageSize) return;
+      if (!image || !sourceImageSize || !imageProps) return;
 
       const imageAspectRatio = sourceImageSize.width / sourceImageSize.height;
       const currentWidth = imageProps.width;
@@ -350,7 +518,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
       const newY = displayHeight - newHeight;
 
       setImageProps((prev) => ({
-        ...prev,
+        ...((prev ?? imageProps) as ImageProps),
         x: newX,
         y: newY,
         height: newHeight,
@@ -370,7 +538,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
     useImperativeHandle(ref, () => ({
       isImageFullyCovering: () => checkImageCoverage(),
       getCanvasDataUrl: () => {
-        if (stageRef.current && image) {
+        if (stageRef.current && image && imageProps) {
           // Create a new temporary stage for clean export at design/original pixel size
           // Determine export scale to avoid downscaling the original image
           let exportScale = 1;
@@ -423,7 +591,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
             x: imageProps.x * scaleToDesign * exportScale,
             y: imageProps.y * scaleToDesign * exportScale,
             width: imageProps.width * scaleToDesign * exportScale,
-            height: imageProps.height * scaleToDesign * exportScale,
+              height: imageProps.height * scaleToDesign * exportScale,
             image: image,
           });
           tempLayer.add(tempImage);
@@ -450,15 +618,20 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
     // Event handlers
     const handleImageDragEnd = useCallback(
       (e: { target: { x: () => number; y: () => number } }) => {
-        setImageProps((prev) => ({
-          ...prev,
-          x: e.target.x(),
-          y: e.target.y(),
-        }));
+        if (!imageProps) return;
+        userInteractedRef.current = true;
+        setImageProps((prev) => {
+          const baseline = (prev ?? imageProps) as ImageProps;
+          return {
+            ...baseline,
+            x: e.target.x(),
+            y: e.target.y(),
+          };
+        });
         // Show centering guides when drag ends
         showCenteringGuidesTemporarily();
       },
-      [setImageProps, showCenteringGuidesTemporarily]
+      [imageProps, setImageProps, showCenteringGuidesTemporarily]
     );
 
     const handleImageDragMove = useCallback(
@@ -520,27 +693,34 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
 
     const handleMove = useCallback(
       (deltaX: number, deltaY: number) => {
-        setImageProps((prev) => ({
-          ...prev,
-          x: prev.x + deltaX,
-          y: prev.y + deltaY,
-        }));
+        if (!imageProps) return;
+        userInteractedRef.current = true;
+        setImageProps((prev) => {
+          const baseline = (prev ?? imageProps) as ImageProps;
+          return {
+            ...baseline,
+            x: baseline.x + deltaX,
+            y: baseline.y + deltaY,
+          };
+        });
         // Show centering guides when moving with controls
         showCenteringGuidesTemporarily();
       },
-      [setImageProps, showCenteringGuidesTemporarily]
+      [imageProps, setImageProps, showCenteringGuidesTemporarily]
     );
 
     const handleResize = useCallback(
       (newProps: { x: number; y: number; width: number; height: number }) => {
+        if (!imageProps) return;
+        userInteractedRef.current = true;
         setImageProps((prev) => ({
-          ...prev,
+          ...((prev ?? imageProps) as ImageProps),
           ...newProps,
         }));
         // Show centering guides when resizing
         showCenteringGuidesTemporarily();
       },
-      [setImageProps, showCenteringGuidesTemporarily]
+      [imageProps, setImageProps, showCenteringGuidesTemporarily]
     );
 
     return (
@@ -564,7 +744,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
           // Temporarily commented out - limit controls
           // onDisableX={handleDisableX}
           // onDisableY={handleDisableY}
-          disabled={!image}
+          disabled={!image || !imageProps}
           // Temporarily commented out - limit controls
           // disableXMovement={disableXMovement}
           // disableYMovement={disableYMovement}
@@ -579,43 +759,49 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
             className="relative"
             style={{ width: displayWidth, height: displayHeight }}
           >
-            <CanvasStage
-              width={displayWidth}
-              height={displayHeight}
-              image={image}
-              imageProps={imageProps}
-              designWidth={design.width}
-              designHeight={design.height}
-              showCenteringGuides={showCenteringGuides}
-              centeringGuidesOpacity={centeringGuidesOpacity}
-              onDragEnd={handleImageDragEnd}
-              onDragMove={handleImageDragMove}
-              onMouseMove={handleMouseMove}
-              onTouchStart={handleMobileTouch}
-              onClick={handleStageClick}
-              onImageHover={handleImageHover}
-              stageRef={stageRef}
-            />
+            {image && imageProps ? (
+              <CanvasStage
+                width={displayWidth}
+                height={displayHeight}
+                image={image}
+                imageProps={imageProps}
+                designWidth={design.width}
+                designHeight={design.height}
+                showCenteringGuides={showCenteringGuides}
+                centeringGuidesOpacity={centeringGuidesOpacity}
+                onDragEnd={handleImageDragEnd}
+                onDragMove={handleImageDragMove}
+                onMouseMove={handleMouseMove}
+                onTouchStart={handleMobileTouch}
+                onClick={handleStageClick}
+                onImageHover={handleImageHover}
+                stageRef={stageRef}
+              />
+            ) : (
+              <div className="w-full h-full rounded-[inherit] bg-gray-100/70" />
+            )}
           </div>
 
           {/* ImageControls positioned outside canvas to avoid clipping */}
-          <ImageControls
-            image={image}
-            imageProps={imageProps}
-            originalAspectRatio={
-              sourceImageSize
-                ? sourceImageSize.width / sourceImageSize.height
-                : 1
-            }
-            controlsOpacity={controlsOpacity}
-            isSelected={isSelected}
-            showResizeHandles={showResizeHandles}
-            onMove={handleMove}
-            onResize={handleResize}
-            // Temporarily commented out - limit controls
-            // disableXMovement={disableXMovement}
-            // disableYMovement={disableYMovement}
-          />
+          {image && imageProps && (
+            <ImageControls
+              image={image}
+              imageProps={imageProps}
+              originalAspectRatio={
+                sourceImageSize
+                  ? sourceImageSize.width / sourceImageSize.height
+                  : 1
+              }
+              controlsOpacity={controlsOpacity}
+              isSelected={isSelected}
+              showResizeHandles={showResizeHandles}
+              onMove={handleMove}
+              onResize={handleResize}
+              // Temporarily commented out - limit controls
+              // disableXMovement={disableXMovement}
+              // disableYMovement={disableYMovement}
+            />
+          )}
         </div>
       </motion.div>
     );

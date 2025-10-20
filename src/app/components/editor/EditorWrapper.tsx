@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import dynamic from 'next/dynamic'
 import ProductSkeleton from './ProductSkeleton'
 import type { EditorCanvasRef } from '../canvas/EditorCanvas'
+import type { ImageState } from '../hooks/useImageLoader'
 
 // Dynamically import EditorCanvas to avoid SSR issues
 const EditorCanvas = dynamic(() => import('../canvas/EditorCanvas'), {
@@ -17,9 +18,18 @@ interface EditorWrapperProps {
   productId: string
   canvasRef: React.RefObject<EditorCanvasRef | null>
   onValidationChange?: (isValid: boolean) => void
+  initialImageState?: ImageState | null
+  onImageStateChange?: (state: ImageState) => void
 }
 
-export default function EditorWrapper({ imageFile, productId, canvasRef, onValidationChange }: EditorWrapperProps) {
+export default function EditorWrapper({
+  imageFile,
+  productId,
+  canvasRef,
+  onValidationChange,
+  initialImageState = null,
+  onImageStateChange,
+}: EditorWrapperProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [isEditorReady, setIsEditorReady] = useState(false)
 
@@ -59,6 +69,8 @@ export default function EditorWrapper({ imageFile, productId, canvasRef, onValid
                 imageFile={imageFile} 
                 productId={productId}
                 onValidationChange={onValidationChange}
+                initialImageState={initialImageState}
+                onImageStateChange={onImageStateChange}
               />
             )}
           </motion.div>
