@@ -234,9 +234,14 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
     );
 
     useEffect(() => {
-      if (!imageStatesEqual(lastInitialStateRef.current, initialImageState ?? null)) {
+      if (
+        !imageStatesEqual(
+          lastInitialStateRef.current,
+          initialImageState ?? null
+        )
+      ) {
         lastInitialStateRef.current = initialImageState ?? null;
-        autoCoverPendingRef.current = true;
+        autoCoverPendingRef.current = !initialImageState;
         if (!initialImageState) {
           userInteractedRef.current = false;
         }
@@ -281,7 +286,8 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
 
       const isCovering = checkImageCoverage();
       const shouldEnforce =
-        autoCoverPendingRef.current || (!isCovering && !userInteractedRef.current);
+        autoCoverPendingRef.current ||
+        (!isCovering && !userInteractedRef.current);
 
       if (!shouldEnforce) {
         return;
@@ -591,7 +597,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
             x: imageProps.x * scaleToDesign * exportScale,
             y: imageProps.y * scaleToDesign * exportScale,
             width: imageProps.width * scaleToDesign * exportScale,
-              height: imageProps.height * scaleToDesign * exportScale,
+            height: imageProps.height * scaleToDesign * exportScale,
             image: image,
           });
           tempLayer.add(tempImage);
