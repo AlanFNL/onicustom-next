@@ -47,7 +47,7 @@ function App() {
       description: "Barra espaciadora única para tu teclado",
       redirectUrl:
         "https://www.onicaps.online/productos/keycap-pro-personalizada/",
-      disabled: true,
+      disabled: false,
     },
   ];
 

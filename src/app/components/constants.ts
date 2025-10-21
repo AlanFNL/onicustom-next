@@ -1,10 +1,11 @@
 // Product dimensions mapping (in pixels for final export/print)
 export const PRODUCT_DIMENSIONS = {
-  "mousepad-90x40": { width: 900, height: 400 },
-  "mousepad-60x40": { width: 600, height: 400 },
-  "keycap-kda": { width: 400, height: 400 },
-  // Spacebar: 112.5mm x 15mm @ 300 DPI ≈ 1329 x 177 px
-  spacebar: { width: 1329, height: 177 },
+  "mousepad-90x40": { width: 900, height: 400, borderRadius: 0 },
+  "mousepad-60x40": { width: 600, height: 400, borderRadius: 0 },
+  // Keycap: 3.8 cm × 14.1 cm @ 300 DPI ≈ 449 × 1665 px
+  "keycap-kda": { width: 430, height: 439, borderRadius: 160 },
+  // Spacebar: 11.33 cm × 1.399 cm @ 300 DPI ≈ 1338 × 165 px
+  spacebar: { width: 1338, height: 165, borderRadius: 80 },
 } as const;
 
 export const PRODUCT_DISCLAIMERS = {

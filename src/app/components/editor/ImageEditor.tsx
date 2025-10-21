@@ -34,12 +34,16 @@ interface KeycapImage {
 }
 
 const MAX_KEYCAP_IMAGES = 5;
-const COVERAGE_WARNING =
-  "Cuidado, la imagen no está llenando todo el producto. Ajustala usando los botones o movela manualmente para cubrir todo el espacio.";
+const COVERAGE_WARNING_MOUSEPAD =
+  "Cuidado, la imagen no está cubriendo todo el producto. Ajustala usando los controles o movela manualmente para evitar bordes blancos.";
+const COVERAGE_WARNING_KEYCAP =
+  "Ojo, hay keycaps que no se cubren al 100%. Si lo hiciste a propósito, seguí tranqui; si no, acomodalas para que no queden bordes blancos.";
+const COVERAGE_WARNING_SPACEBAR =
+  "Ojo, la imagen no ocupa toda la barra. Si era intencional, todo bien; si no, ajustala así evitás bordes blancos.";
 const KEYCAP_LIMIT_WARNING =
   "Podés subir hasta 5 keycaps por tanda. Eliminá una o reiniciá para cargar nuevas.";
 const KEYCAP_VALIDATION_WARNING =
-  "Revisá que todas las keycaps cubran el área completa antes de guardarlas.";
+  "Subí al menos una keycap antes de intentar guardar.";
 const KEYCAP_EXPORT_ERROR =
   "Tuvimos un problema al preparar la descarga. Probá de nuevo.";
 
@@ -116,7 +120,7 @@ const exportKeycapCanvas = async ({
 }: {
   file: File;
   state?: ImageState;
-  design: { width: number; height: number };
+  design: { width: number; height: number; borderRadius?: number };
 }) => {
   if (typeof window === "undefined") {
     throw new Error("Exportación disponible sólo en el navegador.");
@@ -157,6 +161,43 @@ const exportKeycapCanvas = async ({
 
   const exportWidth = Math.round(design.width * exportScale);
   const exportHeight = Math.round(design.height * exportScale);
+  const designBorderRadius = design.borderRadius ?? 0;
+  const exportCornerRadius =
+    designBorderRadius > 0
+      ? Math.min(
+          designBorderRadius * exportScale,
+          exportWidth / 2,
+          exportHeight / 2
+        )
+      : 0;
+
+  const applyRoundedClip = (
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ctx: any,
+    width: number,
+    height: number,
+    radius: number
+  ) => {
+    const r = Math.min(radius, width / 2, height / 2);
+    if (r <= 0) {
+      ctx.beginPath();
+      ctx.rect(0, 0, width, height);
+      ctx.closePath();
+      return;
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(r, 0);
+    ctx.lineTo(width - r, 0);
+    ctx.quadraticCurveTo(width, 0, width, r);
+    ctx.lineTo(width, height - r);
+    ctx.quadraticCurveTo(width, height, width - r, height);
+    ctx.lineTo(r, height);
+    ctx.quadraticCurveTo(0, height, 0, height - r);
+    ctx.lineTo(0, r);
+    ctx.quadraticCurveTo(0, 0, r, 0);
+    ctx.closePath();
+  };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tempStage = new (window as any).Konva.Stage({
@@ -169,6 +210,18 @@ const exportKeycapCanvas = async ({
   const tempLayer = new (window as any).Konva.Layer();
   tempStage.add(tempLayer);
 
+  if (exportCornerRadius > 0) {
+    tempLayer.clipFunc((ctx: unknown) =>
+      applyRoundedClip(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ctx as any,
+        exportWidth,
+        exportHeight,
+        exportCornerRadius
+      )
+    );
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const background = new (window as any).Konva.Rect({
     x: 0,
@@ -176,6 +229,7 @@ const exportKeycapCanvas = async ({
     width: exportWidth,
     height: exportHeight,
     fill: "white",
+    cornerRadius: exportCornerRadius,
   });
   tempLayer.add(background);
 
@@ -216,6 +270,15 @@ const downloadBlob = (blob: Blob, filename: string) => {
   }, 1000);
 };
 
+const downloadDataUrl = async (dataUrl: string, filename: string) => {
+  const response = await fetch(dataUrl);
+  if (!response.ok) {
+    throw new Error("No se pudo preparar la descarga.");
+  }
+  const blob = await response.blob();
+  downloadBlob(blob, filename);
+};
+
 const delay = (ms: number) =>
   new Promise((resolve) => {
     window.setTimeout(resolve, ms);
@@ -233,6 +296,7 @@ export default function ImageEditor({
   }, []);
 
   const isKeycap = productId === "keycap-kda";
+  const isSpacebar = productId === "spacebar";
   const canvasRef = useRef<EditorCanvasRef>(null);
   const moreUploadsInputRef = useRef<HTMLInputElement>(null);
   const previewUrlsRef = useRef<Set<string>>(new Set());
@@ -253,7 +317,12 @@ export default function ImageEditor({
   const [isSavingImages, setIsSavingImages] = useState(false);
   const [isCompletionOpen, setIsCompletionOpen] = useState(false);
 
-  const [toastMessage, setToastMessage] = useState(COVERAGE_WARNING);
+  const initialCoverageToast = isKeycap
+    ? COVERAGE_WARNING_KEYCAP
+    : isSpacebar
+    ? COVERAGE_WARNING_SPACEBAR
+    : COVERAGE_WARNING_MOUSEPAD;
+  const [toastMessage, setToastMessage] = useState(initialCoverageToast);
   const [toastType, setToastType] = useState<"warning" | "error" | "success">(
     "warning"
   );
@@ -279,12 +348,20 @@ export default function ImageEditor({
     : 0;
 
   const canSaveKeycaps = isKeycap && keycapImages.length > 0;
+  const mustCoverCanvas = !isKeycap && !isSpacebar;
+  const confirmDisabled = mustCoverCanvas && !isImageValid;
 
   const coverageWarning = useCallback(() => {
+    const message = isKeycap
+      ? COVERAGE_WARNING_KEYCAP
+      : isSpacebar
+      ? COVERAGE_WARNING_SPACEBAR
+      : COVERAGE_WARNING_MOUSEPAD;
+
     setToastType("warning");
-    setToastMessage(COVERAGE_WARNING);
+    setToastMessage(message);
     setShowToast(true);
-  }, []);
+  }, [isKeycap, isSpacebar]);
 
   const handleKeycapUploads = useCallback(
     (files: File[]) => {
@@ -415,19 +492,40 @@ export default function ImageEditor({
     [activeImageId, isKeycap]
   );
 
-  const handleConfirmImage = () => {
+  const handleConfirmImage = useCallback(async () => {
     if (!canvasRef.current) return;
 
     const isCovering = canvasRef.current.isImageFullyCovering();
     if (!isCovering) {
       coverageWarning();
-      return;
+      if (mustCoverCanvas) {
+        return;
+      }
     }
 
     const dataUrl = canvasRef.current.getCanvasDataUrl();
+    if (!dataUrl) return;
+
+    if (isSpacebar) {
+      try {
+        await downloadDataUrl(dataUrl, "spacebar.png");
+        setToastType("success");
+        setToastMessage("Descarga lista. Revisá tus archivos para continuar.");
+        setShowToast(true);
+      } catch (error) {
+        setToastType("error");
+        setToastMessage(KEYCAP_EXPORT_ERROR);
+        setShowToast(true);
+        if (process.env.NODE_ENV === "development") {
+          console.error("Error exportando spacebar:", error);
+        }
+        return;
+      }
+    }
+
     setCanvasDataUrl(dataUrl);
     setIsConfirmationOpen(true);
-  };
+  }, [canvasRef, coverageWarning, isSpacebar, mustCoverCanvas]);
 
   const resetKeycapSession = useCallback(() => {
     previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -457,10 +555,7 @@ export default function ImageEditor({
     );
     if (invalidImage) {
       setActiveImageId(invalidImage.id);
-      setToastType("warning");
-      setToastMessage(KEYCAP_VALIDATION_WARNING);
-      setShowToast(true);
-      return;
+      coverageWarning();
     }
 
     setIsSavingImages(true);
@@ -793,14 +888,14 @@ export default function ImageEditor({
 
                   <motion.button
                     onClick={handleConfirmImage}
-                    disabled={!isImageValid}
+                    disabled={confirmDisabled}
                     className={`px-5 py-2 rounded-xl font-medium transition-colors duration-200 text-sm sm:text-base whitespace-nowrap ${
-                      isImageValid
+                      !confirmDisabled
                         ? "bg-[#7a4dff] text-white hover:bg-[#6b42e6]"
                         : "bg-gray-300 text-gray-500 cursor-not-allowed"
                     }`}
-                    whileHover={{ scale: isImageValid ? 1.02 : 1 }}
-                    whileTap={{ scale: isImageValid ? 0.98 : 1 }}
+                    whileHover={{ scale: !confirmDisabled ? 1.02 : 1 }}
+                    whileTap={{ scale: !confirmDisabled ? 0.98 : 1 }}
                   >
                     Confirmar imagen
                   </motion.button>
@@ -881,22 +976,24 @@ export default function ImageEditor({
         </motion.div>
       </footer>
 
-      {!isKeycap && (
-        <ConfirmationPopup
-          isOpen={isConfirmationOpen}
-          onClose={() => setIsConfirmationOpen(false)}
-          currentProduct={currentProduct}
-          canvasDataUrl={canvasDataUrl}
-        />
-      )}
+      {!isKeycap ||
+        (!isSpacebar && (
+          <ConfirmationPopup
+            isOpen={isConfirmationOpen}
+            onClose={() => setIsConfirmationOpen(false)}
+            currentProduct={currentProduct}
+            canvasDataUrl={canvasDataUrl}
+          />
+        ))}
 
-      {isKeycap && (
-        <KeycapCompletionModal
-          isOpen={isCompletionOpen}
-          onReset={handleCompletionReset}
-          onRedirect={handleCompletionRedirect}
-        />
-      )}
+      {isKeycap ||
+        (isSpacebar && (
+          <KeycapCompletionModal
+            isOpen={isCompletionOpen}
+            onReset={handleCompletionReset}
+            onRedirect={handleCompletionRedirect}
+          />
+        ))}
 
       <Toast
         isVisible={showToast}

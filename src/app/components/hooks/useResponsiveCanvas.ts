@@ -6,7 +6,8 @@ interface UseResponsiveCanvasProps {
 }
 
 export function useResponsiveCanvas({ productId }: UseResponsiveCanvasProps) {
-  const design = PRODUCT_DIMENSIONS[productId as ProductId] || { width: 600, height: 400 }
+  const fallbackDesign = { width: 600, height: 400, borderRadius: 0 }
+  const design = PRODUCT_DIMENSIONS[productId as ProductId] || fallbackDesign
 
   const [displayWidth, setDisplayWidth] = useState<number>(() => {
     if (typeof window === 'undefined') return Math.min(800, design.width)

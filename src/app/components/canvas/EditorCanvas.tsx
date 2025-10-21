@@ -63,6 +63,34 @@ export interface EditorCanvasRef {
   isImageFullyCovering: () => boolean;
 }
 
+const drawRoundedRectPath = (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ctx: any,
+  width: number,
+  height: number,
+  radius: number
+) => {
+  const r = Math.min(radius, width / 2, height / 2);
+  if (r <= 0) {
+    ctx.beginPath();
+    ctx.rect(0, 0, width, height);
+    ctx.closePath();
+    return;
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.lineTo(width - r, 0);
+  ctx.quadraticCurveTo(width, 0, width, r);
+  ctx.lineTo(width, height - r);
+  ctx.quadraticCurveTo(width, height, width - r, height);
+  ctx.lineTo(r, height);
+  ctx.quadraticCurveTo(0, height, 0, height - r);
+  ctx.lineTo(0, r);
+  ctx.quadraticCurveTo(0, 0, r, 0);
+  ctx.closePath();
+};
+
 const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
   (
     {
@@ -97,6 +125,15 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
     const { displayWidth, displayHeight, design } = useResponsiveCanvas({
       productId,
     });
+    const designBorderRadius = design.borderRadius ?? 0;
+    const displayBorderRadius =
+      designBorderRadius > 0
+        ? Math.min(
+            (designBorderRadius * displayWidth) / design.width,
+            displayWidth / 2,
+            displayHeight / 2
+          )
+        : 0;
     const { image, sourceImageSize, imageProps, setImageProps } =
       useImageLoader({
         imageFile,
@@ -577,6 +614,27 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
           const tempLayer = new (window as any).Konva.Layer();
           tempStage.add(tempLayer);
 
+          const exportCornerRadius =
+            designBorderRadius > 0
+              ? Math.min(
+                  designBorderRadius * exportScale,
+                  exportWidth / 2,
+                  exportHeight / 2
+                )
+              : 0;
+
+          if (exportCornerRadius > 0) {
+            tempLayer.clipFunc((ctx: unknown) => {
+              drawRoundedRectPath(
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                ctx as any,
+                exportWidth,
+                exportHeight,
+                exportCornerRadius
+              );
+            });
+          }
+
           // Add white background
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const background = new (window as any).Konva.Rect({
@@ -585,6 +643,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
             width: exportWidth,
             height: exportHeight,
             fill: "white",
+            cornerRadius: exportCornerRadius,
           });
           tempLayer.add(background);
 
@@ -757,7 +816,10 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
         />
 
         <div
-          className="bg-white rounded-2xl shadow-lg p-2 relative overflow-visible"
+          className="bg-white shadow-lg p-2 relative overflow-visible"
+          style={{
+            borderRadius: displayBorderRadius || undefined,
+          }}
           ref={containerRef}
           onClick={handleContainerClick}
         >
@@ -773,6 +835,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
                 imageProps={imageProps}
                 designWidth={design.width}
                 designHeight={design.height}
+                borderRadius={displayBorderRadius}
                 showCenteringGuides={showCenteringGuides}
                 centeringGuidesOpacity={centeringGuidesOpacity}
                 onDragEnd={handleImageDragEnd}

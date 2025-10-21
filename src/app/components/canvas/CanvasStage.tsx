@@ -20,6 +20,7 @@ interface CanvasStageProps {
   designHeight: number
   showCenteringGuides: boolean
   centeringGuidesOpacity: number
+  borderRadius: number
   onDragEnd: (e: { target: { x: () => number; y: () => number } }) => void
   onDragMove: (e: { target: { x: () => number; y: () => number } }) => void
   onMouseMove: () => void
@@ -38,6 +39,7 @@ export default function CanvasStage({
   designHeight,
   showCenteringGuides,
   centeringGuidesOpacity,
+  borderRadius,
   onDragEnd,
   onDragMove,
   onMouseMove,
@@ -46,13 +48,19 @@ export default function CanvasStage({
   onImageHover,
   stageRef
 }: CanvasStageProps) {
+  const stageStyle =
+    borderRadius > 0
+      ? { borderRadius, overflow: 'hidden' as const }
+      : undefined
+
   return (
     <Stage 
       width={width} 
       height={height} 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ref={stageRef as any}
-      className="border border-gray-200 rounded-xl touch-none select-none"
+      className="border border-gray-200 touch-none select-none"
+      style={stageStyle}
       onMouseMove={onMouseMove}
       onMouseLeave={() => {
         // Don't hide handles on mouse leave - they stay visible when selected
@@ -65,6 +73,7 @@ export default function CanvasStage({
         imageProps={imageProps}
         canvasWidth={width}
         canvasHeight={height}
+        cornerRadius={borderRadius}
         onDragEnd={onDragEnd}
         onDragMove={onDragMove}
         onImageHover={onImageHover}
