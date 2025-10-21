@@ -5,7 +5,7 @@ export const PRODUCT_DIMENSIONS = {
   // Keycap: 3.8 cm × 14.1 cm @ 300 DPI ≈ 449 × 1665 px
   "keycap-kda": { width: 430, height: 439, borderRadius: 120 },
   // Spacebar: 11.33 cm × 1.399 cm @ 300 DPI ≈ 1338 × 165 px
-  spacebar: { width: 1338, height: 165, borderRadius: 80 },
+  spacebar: { width: 1338, height: 165, borderRadius: 20 },
 } as const;
 
 export const PRODUCT_DISCLAIMERS = {
