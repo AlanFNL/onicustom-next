@@ -42,11 +42,11 @@ function App() {
     },
     {
       id: "spacebar",
-      title: "Spacebar Custom",
+      title: "Spacebar Custom $15.000",
       image: "/assets/spacebar.webp",
       description: "Barra espaciadora única para tu teclado",
       redirectUrl:
-        "https://www.onicaps.online/productos/keycap-pro-personalizada/",
+        "https://www.onicaps.online/productos/spacebar-personalizada-ov61k/",
       disabled: false,
     },
   ];

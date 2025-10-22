@@ -170,11 +170,11 @@ export default function Disclaimer({
 }: DisclaimerProps) {
   const [showVideo, setShowVideo] = useState(false);
 
-  const resolvedProductId = (PRODUCT_DISCLAIMERS[
-    productId as ProductId
-  ]
-    ? (productId as ProductId)
-    : "mousepad-90x40") as ProductId;
+  const resolvedProductId = (
+    PRODUCT_DISCLAIMERS[productId as ProductId]
+      ? (productId as ProductId)
+      : "mousepad-90x40"
+  ) as ProductId;
 
   const defaultDisclaimer =
     PRODUCT_DISCLAIMERS["mousepad-90x40"] ||
@@ -250,9 +250,13 @@ export default function Disclaimer({
                     INFORMACIÓN IMPORTANTE, ¡POR FAVOR LEÉ!
                   </h3>
                   <div className="space-y-3 text-amber-700">
-                    <p className="text-xs md:text-sm leading-relaxed font-medium">
-                      {disclaimerText}
-                    </p>
+                    <div className="text-xs md:text-sm leading-relaxed font-medium">
+                      {disclaimerText.split("\n\n").map((paragraph, index) => (
+                        <p key={index} className={index > 0 ? "mt-3" : ""}>
+                          {paragraph}
+                        </p>
+                      ))}
+                    </div>
 
                     {showDispatchCalculator && <DispatchCalculator />}
 

@@ -10,13 +10,13 @@ export const PRODUCT_DIMENSIONS = {
 
 export const PRODUCT_DISCLAIMERS = {
   "mousepad-90x40":
-    "Subir una imagen de baja calidad resultará en una impresión de baja calidad. Imprimimos lo que nos enviás. Pasamos a producción todos los lunes y despachamos todos los viernes. Significa que si compras un MARTES, pasa a producción el LUNES siguiente y se despacha el VIERNES. Luego de subir y confirmar la imagen, el editor te redireccionará a la web para completar tu compra.",
+    "Subir una imagen de baja calidad resultará en una impresión de baja calidad. Imprimimos lo que nos enviás.\n\nPasamos a producción todos los lunes y despachamos todos los viernes. Significa que si compras un MARTES, pasa a producción el LUNES siguiente y se despacha el VIERNES.\n\nLuego de subir y confirmar la imagen, el editor te redireccionará a la web para completar tu compra.",
   "mousepad-60x40":
-    "Subir una imagen de baja calidad resultará en una impresión de baja calidad. Imprimimos lo que nos enviás. Pasamos a producción todos los lunes y despachamos todos los viernes. Significa que si compras un MARTES, pasa a producción el LUNES siguiente y se despacha el VIERNES. Luego de subir y confirmar la imagen, el editor te redireccionará a la web para completar tu compra.",
+    "Subir una imagen de baja calidad resultará en una impresión de baja calidad. Imprimimos lo que nos enviás.\n\nPasamos a producción todos los lunes y despachamos todos los viernes. Significa que si compras un MARTES, pasa a producción el LUNES siguiente y se despacha el VIERNES.\n\nLuego de subir y confirmar la imagen, el editor te redireccionará a la web para completar tu compra.",
   "keycap-kda":
-    "Subir una imagen de baja calidad resultará en una impresión de baja calidad. Imprimimos lo que nos enviás. Perfil XDA. Material PBT. No son stickers ni sublimación es impresion directa sobre la keycap de pbt. No se puede personalizar sobre los costados de la keycap. ATENCION:  Tener en cuenta que los diseños sobre keycaps negras suelen quedar algo apagados si la imagen no es de una calidad muy alta.",
+    "Subir una imagen de baja calidad resultará en una impresión de baja calidad. Imprimimos lo que nos enviás.\n\nPerfil XDA. Material PBT. No son stickers ni sublimación es impresion directa sobre la keycap de pbt. No se puede personalizar sobre los costados de la keycap.\n\nATENCION: Tener en cuenta que los diseños sobre keycaps negras suelen quedar algo apagados si la imagen no es de una calidad muy alta.",
   spacebar:
-    "Subir una imagen de baja calidad resultará en una impresión de baja calidad. Imprimimos lo que nos enviás. Pasamos a producción todos los lunes y despachamos todos los viernes. Significa que si compras un MARTES, pasa a producción el LUNES siguiente y se despacha el VIERNES. Luego de subir y confirmar la imagen, el editor te redireccionará a la web para completar tu compra.",
+    "Subir una imagen de baja calidad resultará en una impresión de baja calidad. Imprimimos lo que nos enviás.\n\nPerfil XDA. Material PBT. No son stickers ni sublimación es impresion directa sobre la spacebar de pbt. No se puede personalizar sobre los costados de la spacebar.\n\nATENCION: Tener en cuenta que los diseños sobre spacebars negras suelen quedar algo apagados si la imagen no es de una calidad muy alta.",
 } as const;
 
 export type ProductId = keyof typeof PRODUCT_DIMENSIONS;
