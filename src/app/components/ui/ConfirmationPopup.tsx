@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 interface ProductCard {
   id: string;
@@ -74,14 +74,6 @@ export default function ConfirmationPopup({
     return new File([blob], "design.png", { type: blob.type || "image/png" });
   }, [canvasDataUrl]);
 
-  const uploadEndpoint = useMemo(() => {
-    if (!imageKitAuth) {
-      return "https://upload.imagekit.io/api/v1/files/upload";
-    }
-    const base = imageKitAuth.urlEndpoint.replace(/\/$/, "");
-    return `${base}/files/upload`;
-  }, [imageKitAuth]);
-
   const uploadToImageKit = useCallback(async () => {
     if (!imageKitAuth) {
       throw new Error("Autenticación de ImageKit no disponible");
@@ -98,9 +90,8 @@ export default function ConfirmationPopup({
     formData.append("folder", "/onicustom");
     formData.append("useUniqueFileName", "true");
     formData.append("publicKey", imageKitAuth.publicKey);
-    formData.append("apiVersion", "2");
 
-    const response = await fetch(uploadEndpoint, {
+    const response = await fetch("https://upload.imagekit.io/api/v1/files/upload", {
       method: "POST",
       body: formData,
     });
@@ -117,12 +108,8 @@ export default function ConfirmationPopup({
       throw new Error("Respuesta inválida de ImageKit");
     }
 
-    if (data.url.startsWith("/")) {
-      return `${imageKitAuth.urlEndpoint}${data.url}`;
-    }
-
     return data.url as string;
-  }, [dataUrlToFile, imageKitAuth, uploadEndpoint]);
+  }, [dataUrlToFile, imageKitAuth]);
 
   useEffect(() => {
     const fetchAuth = async () => {
@@ -155,11 +142,13 @@ export default function ConfirmationPopup({
     if (isOpen) {
       setLoadingState("idle");
       setError(null);
-      fetchAuth();
+      if (!imageKitAuth) {
+        fetchAuth();
+      }
     } else {
       setImageKitAuth(null);
     }
-  }, [isOpen]);
+  }, [isOpen, imageKitAuth]);
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
