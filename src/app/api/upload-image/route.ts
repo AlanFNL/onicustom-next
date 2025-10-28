@@ -17,7 +17,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate environment variables
-    if (!process.env.IMAGEKIT_PUBLIC_KEY || !process.env.IMAGEKIT_PRIVATE_KEY || !process.env.IMAGEKIT_URL_ENDPOINT) {
+    if (
+      !process.env.IMAGEKIT_PUBLIC_KEY ||
+      !process.env.IMAGEKIT_PRIVATE_KEY ||
+      !process.env.IMAGEKIT_URL_ENDPOINT
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -62,4 +66,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

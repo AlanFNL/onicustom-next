@@ -22,6 +22,13 @@ interface ProductTitle {
 const PASSWORD = "midisclosed2025";
 const STORAGE_KEY = "dash_auth";
 
+// Helper function to preserve original image format
+const getOriginalImageUrl = (url: string): string => {
+  if (!url) return url;
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}orig=true`;
+};
+
 export default function Dashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
@@ -422,7 +429,7 @@ function DesignCard({
 }) {
   return (
     <a
-      href={design.img_url}
+      href={getOriginalImageUrl(design.img_url)}
       target="_blank"
       rel="noopener noreferrer"
       className="block bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-shadow hover:border-[#7a4dff]"
@@ -431,7 +438,7 @@ function DesignCard({
         {showImage && (
           <div className="relative group flex-shrink-0">
             <img
-              src={design.img_url}
+              src={getOriginalImageUrl(design.img_url)}
               alt="Design"
               className="w-32 h-32 object-cover rounded-xl border border-gray-200 group-hover:border-[#7a4dff] transition-colors"
               onError={(e) => {
