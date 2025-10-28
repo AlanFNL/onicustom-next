@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 
 interface Design {
   id: string;
@@ -73,6 +74,49 @@ export default function Dashboard() {
     };
 
     fetchData();
+
+    // Set up real-time subscriptions
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      console.error("Supabase configuration missing");
+      return;
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Subscribe to new designs
+    const designsSubscription = supabase
+      .channel("designs-changes")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "designs" },
+        (payload) => {
+          const newDesign = payload.new as Design;
+          setDesigns((prev) => [newDesign, ...prev]);
+        }
+      )
+      .subscribe();
+
+    // Subscribe to new product titles
+    const productTitlesSubscription = supabase
+      .channel("product_titles-changes")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "product_titles" },
+        (payload) => {
+          const newProductTitle = payload.new as ProductTitle;
+          setProductTitles((prev) => [newProductTitle, ...prev]);
+        }
+      )
+      .subscribe();
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      designsSubscription.unsubscribe();
+      productTitlesSubscription.unsubscribe();
+    };
   }, [isAuthenticated]);
 
   const handleSubmit = (e: React.FormEvent) => {
