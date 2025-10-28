@@ -1,6 +1,14 @@
 import ImageKit from "imagekit";
 import { NextRequest, NextResponse } from "next/server";
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "50mb",
+    },
+  },
+};
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();

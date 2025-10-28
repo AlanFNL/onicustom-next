@@ -17,6 +17,11 @@ const nextConfig: NextConfig = {
     return config;
   },
   transpilePackages: ["react-konva", "konva"],
+  api: {
+    bodyParser: {
+      sizeLimit: "50mb",
+    },
+  },
 };
 
 export default nextConfig;
