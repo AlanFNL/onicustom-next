@@ -76,34 +76,26 @@ export default function ConfirmationPopup({
       const code = generateRandomCode();
       setGeneratedCode(code);
 
-      // Step 1: Get ImgBB API key from server
-      const keyResponse = await fetch("/api/imgbb-key");
-      if (!keyResponse.ok) {
-        throw new Error("Failed to get upload configuration");
-      }
-      const { apiKey } = await keyResponse.json();
+      // Step 1: Upload image to ImageKit
+      const uploadFormData = new FormData();
+      uploadFormData.append("file", blob, "design.png");
 
-      // Step 2: Upload image directly to ImgBB (bypasses Vercel 4.5MB limit)
-      const imgbbFormData = new FormData();
-      imgbbFormData.append("image", blob);
-      imgbbFormData.append("key", apiKey);
-
-      const imgbbResponse = await fetch("https://api.imgbb.com/1/upload", {
+      const uploadResponse = await fetch("/api/upload-image", {
         method: "POST",
-        body: imgbbFormData,
+        body: uploadFormData,
       });
 
-      if (!imgbbResponse.ok) {
-        throw new Error(`Image upload failed: ${imgbbResponse.status}`);
+      if (!uploadResponse.ok) {
+        throw new Error(`Image upload failed: ${uploadResponse.status}`);
       }
 
-      const imgbbData = await imgbbResponse.json();
+      const uploadData = await uploadResponse.json();
 
-      if (!imgbbData.success) {
+      if (!uploadData.success || !uploadData.url) {
         throw new Error("Image upload failed");
       }
 
-      // Step 3: Save data to Google Sheets via API route
+      // Step 2: Save data to Supabase via API route
       const apiResponse = await fetch("/api/save-design", {
         method: "POST",
         headers: {
@@ -115,7 +107,7 @@ export default function ConfirmationPopup({
           productTitle: currentProduct.title,
           code,
           timestamp: new Date().toISOString(),
-          imageUrl: imgbbData.data.url,
+          imageUrl: uploadData.url,
         }),
       });
 

@@ -289,6 +289,7 @@ export default function ImageEditor({
   productCards,
   onBack,
 }: ImageEditorProps) {
+  const currentProduct = productCards.find((p) => p.id === productId);
   const debugLog = useCallback((...args: unknown[]) => {
     if (process.env.NODE_ENV !== "production") {
       console.log("[ImageEditor]", ...args);
@@ -327,10 +328,6 @@ export default function ImageEditor({
     "warning"
   );
   const [showToast, setShowToast] = useState(false);
-
-  const currentProduct = productCards.find(
-    (product) => product.id === productId
-  );
 
   const designSize = PRODUCT_DIMENSIONS[productId as ProductId];
 
@@ -492,6 +489,26 @@ export default function ImageEditor({
     [activeImageId, isKeycap]
   );
 
+  const trackDownload = useCallback(
+    async (productTitle: string) => {
+      try {
+        await fetch("/api/track-download", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            productTitle,
+            timestamp: new Date().toISOString(),
+          }),
+        });
+      } catch (error) {
+        if (process.env.NODE_ENV === "development") {
+          console.error("Error tracking download:", error);
+        }
+      }
+    },
+    []
+  );
+
   const handleConfirmImage = useCallback(async () => {
     if (!canvasRef.current) return;
 
@@ -509,6 +526,11 @@ export default function ImageEditor({
     if (isSpacebar) {
       try {
         await downloadDataUrl(dataUrl, "spacebar.png");
+        // Track download
+        const currentProduct = productCards.find((p) => p.id === productId);
+        if (currentProduct) {
+          await trackDownload(currentProduct.title);
+        }
         setToastType("success");
         setToastMessage("Descarga lista. Revisá tus archivos para continuar.");
         setShowToast(true);
@@ -525,7 +547,7 @@ export default function ImageEditor({
 
     setCanvasDataUrl(dataUrl);
     setIsConfirmationOpen(true);
-  }, [canvasRef, coverageWarning, isSpacebar, mustCoverCanvas]);
+  }, [canvasRef, coverageWarning, isSpacebar, mustCoverCanvas, productCards, productId, trackDownload]);
 
   const resetKeycapSession = useCallback(() => {
     previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -583,6 +605,11 @@ export default function ImageEditor({
         }
       }
 
+      // Track download
+      if (currentProduct) {
+        await trackDownload(currentProduct.title);
+      }
+
       setToastType("success");
       setToastMessage("Descarga lista. Revisá tus archivos para continuar.");
       setShowToast(true);
@@ -599,10 +626,12 @@ export default function ImageEditor({
     }
   }, [
     canSaveKeycaps,
+    currentProduct,
     designSize,
     imageStates,
     isKeycap,
     keycapImages,
+    trackDownload,
     validationMap,
   ]);
 
@@ -976,24 +1005,22 @@ export default function ImageEditor({
         </motion.div>
       </footer>
 
-      {!isKeycap ||
-        (!isSpacebar && (
-          <ConfirmationPopup
-            isOpen={isConfirmationOpen}
-            onClose={() => setIsConfirmationOpen(false)}
-            currentProduct={currentProduct}
-            canvasDataUrl={canvasDataUrl}
-          />
-        ))}
+      {!isKeycap && !isSpacebar && (
+        <ConfirmationPopup
+          isOpen={isConfirmationOpen}
+          onClose={() => setIsConfirmationOpen(false)}
+          currentProduct={currentProduct}
+          canvasDataUrl={canvasDataUrl}
+        />
+      )}
 
-      {isKeycap ||
-        (isSpacebar && (
-          <KeycapCompletionModal
-            isOpen={isCompletionOpen}
-            onReset={handleCompletionReset}
-            onRedirect={handleCompletionRedirect}
-          />
-        ))}
+      {(isKeycap || isSpacebar) && (
+        <KeycapCompletionModal
+          isOpen={isCompletionOpen}
+          onReset={handleCompletionReset}
+          onRedirect={handleCompletionRedirect}
+        />
+      )}
 
       <Toast
         isVisible={showToast}

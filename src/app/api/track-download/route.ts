@@ -1,30 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
-interface SaveDesignRequest {
-  email: string;
-  productId: string;
-  productTitle: string;
-  code: string;
-  timestamp: string;
-  imageUrl: string;
-}
-
 export async function POST(request: NextRequest) {
   try {
-    // Parse JSON data (client uploads image directly to ImgBB first)
     const body = await request.json();
-    const { email, productId, productTitle, code, timestamp, imageUrl } = body;
+    const { productTitle, timestamp } = body;
 
     // Validate required fields
-    if (
-      !email ||
-      !productId ||
-      !productTitle ||
-      !code ||
-      !timestamp ||
-      !imageUrl
-    ) {
+    if (!productTitle || !timestamp) {
       return NextResponse.json(
         {
           success: false,
@@ -50,33 +33,26 @@ export async function POST(request: NextRequest) {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Insert into designs table
-    const { error: designError } = await supabase.from("designs").insert({
-      email,
-      img_url: imageUrl,
-      code,
+    // Insert into product_titles table
+    const { error } = await supabase.from("product_titles").insert({
+      product_title: productTitle,
       timestamp: new Date(timestamp).toISOString(),
     });
 
-    if (designError) {
-      console.error("Supabase design insert error:", designError);
+    if (error) {
+      console.error("Supabase product title insert error:", error);
       return NextResponse.json(
         {
           success: false,
-          message: `Failed to save design: ${designError.message}`,
+          message: `Failed to track download: ${error.message}`,
         },
         { status: 500 }
       );
     }
 
-    // Success response
     return NextResponse.json({
       success: true,
-      message: "Design saved successfully",
-      data: {
-        imageUrl: imageUrl,
-        code: code,
-      },
+      message: "Download tracked successfully",
     });
   } catch (error) {
     console.error("API route error:", error);
@@ -91,13 +67,3 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function OPTIONS() {
-  return new NextResponse(null, {
-    status: 200,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
-    },
-  });
-}
