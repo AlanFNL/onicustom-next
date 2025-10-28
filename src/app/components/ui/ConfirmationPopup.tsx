@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 interface ProductCard {
   id: string;
@@ -9,6 +9,14 @@ interface ProductCard {
   image: string;
   description: string;
   redirectUrl?: string;
+}
+
+interface ImageKitAuth {
+  token: string;
+  signature: string;
+  expire: number;
+  publicKey: string;
+  urlEndpoint: string;
 }
 
 interface ConfirmationPopupProps {
@@ -34,6 +42,7 @@ export default function ConfirmationPopup({
   const [isCopied, setIsCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [imageKitAuth, setImageKitAuth] = useState<ImageKitAuth | null>(null);
 
   // Generate a random 6-character alphanumeric code
   const generateRandomCode = () => {
@@ -59,41 +68,123 @@ export default function ConfirmationPopup({
     return urlMap[productId] || "https://www.onicaps.online/productos/";
   };
 
+  const dataUrlToFile = useCallback(async () => {
+    const response = await fetch(canvasDataUrl);
+    const blob = await response.blob();
+    return new File([blob], "design.png", { type: blob.type || "image/png" });
+  }, [canvasDataUrl]);
+
+  const uploadEndpoint = useMemo(() => {
+    if (!imageKitAuth) {
+      return "https://upload.imagekit.io/api/v1/files/upload";
+    }
+    const base = imageKitAuth.urlEndpoint.replace(/\/$/, "");
+    return `${base}/files/upload`;
+  }, [imageKitAuth]);
+
+  const uploadToImageKit = useCallback(async () => {
+    if (!imageKitAuth) {
+      throw new Error("Autenticación de ImageKit no disponible");
+    }
+
+    const file = await dataUrlToFile();
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("fileName", file.name);
+    formData.append("token", imageKitAuth.token);
+    formData.append("signature", imageKitAuth.signature);
+    formData.append("expire", imageKitAuth.expire.toString());
+    formData.append("folder", "/onicustom");
+    formData.append("useUniqueFileName", "true");
+    formData.append("publicKey", imageKitAuth.publicKey);
+    formData.append("apiVersion", "2");
+
+    const response = await fetch(uploadEndpoint, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        errorData?.message || "Error subiendo imagen a ImageKit"
+      );
+    }
+
+    const data = await response.json();
+    if (!data || !data.url) {
+      throw new Error("Respuesta inválida de ImageKit");
+    }
+
+    if (data.url.startsWith("/")) {
+      return `${imageKitAuth.urlEndpoint}${data.url}`;
+    }
+
+    return data.url as string;
+  }, [dataUrlToFile, imageKitAuth, uploadEndpoint]);
+
+  useEffect(() => {
+    const fetchAuth = async () => {
+      try {
+        const response = await fetch("/api/imagekit-auth");
+        if (!response.ok) {
+          throw new Error("No se pudo obtener la autenticación de ImageKit");
+        }
+        const data = await response.json();
+        if (!data.success) {
+          throw new Error(data.message || "Autenticación inválida");
+        }
+        setImageKitAuth({
+          token: data.token,
+          signature: data.signature,
+          expire: data.expire,
+          publicKey: data.publicKey,
+          urlEndpoint: data.urlEndpoint,
+        });
+      } catch (err) {
+        console.error("Error fetching ImageKit auth:", err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "No se pudo preparar la subida de la imagen"
+        );
+      }
+    };
+
+    if (isOpen) {
+      setLoadingState("idle");
+      setError(null);
+      fetchAuth();
+    } else {
+      setImageKitAuth(null);
+    }
+  }, [isOpen]);
+
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !currentProduct) return;
 
     setIsSubmitting(true);
-    setLoadingState("uploading");
     setError(null);
 
     try {
-      // Convert canvas to blob
-      const canvasResponse = await fetch(canvasDataUrl);
-      const blob = await canvasResponse.blob();
+      if (!imageKitAuth) {
+        throw new Error(
+          "Todavía estamos preparando la subida. Probá de nuevo en un momento."
+        );
+      }
+
+      setLoadingState("uploading");
+
+      // Convert and upload image directly to ImageKit
+      const uploadedUrl = await uploadToImageKit();
 
       // Generate random code
       const code = generateRandomCode();
       setGeneratedCode(code);
 
-      // Step 1: Upload image to ImageKit
-      const uploadFormData = new FormData();
-      uploadFormData.append("file", blob, "design.png");
-
-      const uploadResponse = await fetch("/api/upload-image", {
-        method: "POST",
-        body: uploadFormData,
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error(`Image upload failed: ${uploadResponse.status}`);
-      }
-
-      const uploadData = await uploadResponse.json();
-
-      if (!uploadData.success || !uploadData.url) {
-        throw new Error("Image upload failed");
-      }
+      setLoadingState("saving");
 
       // Step 2: Save data to Supabase via API route
       const apiResponse = await fetch("/api/save-design", {
@@ -107,7 +198,7 @@ export default function ConfirmationPopup({
           productTitle: currentProduct.title,
           code,
           timestamp: new Date().toISOString(),
-          imageUrl: uploadData.url,
+          imageUrl: uploadedUrl,
         }),
       });
 
@@ -162,7 +253,10 @@ export default function ConfirmationPopup({
 
   const handleClose = () => {
     onClose();
-    setTimeout(resetState, 300); // Reset after animation completes
+    setTimeout(() => {
+      resetState();
+      setImageKitAuth(null);
+    }, 300); // Reset after animation completes
   };
 
   const copyToClipboard = async () => {
@@ -370,7 +464,9 @@ export default function ConfirmationPopup({
 
                       <motion.button
                         type="submit"
-                        disabled={isSubmitting || !email || !acceptTerms}
+                        disabled={
+                          isSubmitting || !email || !acceptTerms || !imageKitAuth
+                        }
                         className="w-full py-3 bg-[#7a4dff] text-white rounded-2xl font-medium hover:bg-[#6b42e6] disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
                         whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
                         whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
@@ -417,8 +513,10 @@ export default function ConfirmationPopup({
                               )}
                             </AnimatePresence>
                           </div>
-                        ) : (
+                        ) : imageKitAuth ? (
                           "Guardar Diseño"
+                        ) : (
+                          "Preparando subida..."
                         )}
                       </motion.button>
                     </form>
