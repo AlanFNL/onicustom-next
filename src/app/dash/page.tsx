@@ -22,11 +22,11 @@ interface ProductTitle {
 const PASSWORD = "midisclosed2025";
 const STORAGE_KEY = "dash_auth";
 
-// Helper function to preserve original image format
+// Helper function to preserve original image format and size
 const getOriginalImageUrl = (url: string): string => {
   if (!url) return url;
   const separator = url.includes("?") ? "&" : "?";
-  return `${url}${separator}orig=true`;
+  return `${url}${separator}tr=orig-true`;
 };
 
 export default function Dashboard() {
