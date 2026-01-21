@@ -59,7 +59,7 @@ const imageStatesEqual = (a: ImageState | null, b: ImageState | null) => {
 };
 
 export interface EditorCanvasRef {
-  getCanvasDataUrl: () => string;
+  getCanvasDataUrl: (mimeType?: string) => string;
   isImageFullyCovering: () => boolean;
 }
 
@@ -580,7 +580,7 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
     // Expose canvas export functionality to parent component
     useImperativeHandle(ref, () => ({
       isImageFullyCovering: () => checkImageCoverage(),
-      getCanvasDataUrl: () => {
+      getCanvasDataUrl: (mimeType?: string) => {
         if (stageRef.current && image && imageProps) {
           // Create a new temporary stage for clean export at design/original pixel size
           // Determine export scale to avoid downscaling the original image
@@ -664,10 +664,17 @@ const EditorCanvas = forwardRef<EditorCanvasRef, EditorCanvasProps>(
           // Draw the temporary stage
           tempLayer.draw();
 
+          // Determine export format - preserve original format when possible
+          // Default to PNG for lossless quality, use JPEG for JPG files
+          const isJpeg = mimeType === "image/jpeg" || mimeType === "image/jpg";
+          const exportMimeType = isJpeg ? "image/jpeg" : "image/png";
+          // Use high quality (0.92) for JPEG to minimize generation loss
+          const exportQuality = isJpeg ? 0.92 : 1;
+
           // Export the clean stage
           const dataURL = tempStage.toDataURL({
-            mimeType: "image/png",
-            quality: 1,
+            mimeType: exportMimeType,
+            quality: exportQuality,
             pixelRatio: 1,
           });
 

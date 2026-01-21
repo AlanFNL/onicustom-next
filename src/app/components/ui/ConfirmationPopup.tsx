@@ -71,7 +71,10 @@ export default function ConfirmationPopup({
   const dataUrlToFile = useCallback(async () => {
     const response = await fetch(canvasDataUrl);
     const blob = await response.blob();
-    return new File([blob], "design.png", { type: blob.type || "image/png" });
+    // Use correct extension based on actual blob type
+    const mimeType = blob.type || "image/png";
+    const extension = mimeType === "image/jpeg" ? "jpg" : "png";
+    return new File([blob], `design.${extension}`, { type: mimeType });
   }, [canvasDataUrl]);
 
   const uploadToImageKit = useCallback(async () => {

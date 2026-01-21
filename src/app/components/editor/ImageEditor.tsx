@@ -520,12 +520,16 @@ export default function ImageEditor({
       }
     }
 
-    const dataUrl = canvasRef.current.getCanvasDataUrl();
+    // Pass the original file's MIME type to preserve format (JPG stays JPG, PNG stays PNG)
+    const originalMimeType = uploadedFile?.type || "image/png";
+    const dataUrl = canvasRef.current.getCanvasDataUrl(originalMimeType);
     if (!dataUrl) return;
 
     if (isSpacebar) {
       try {
-        await downloadDataUrl(dataUrl, "spacebar.png");
+        // Use appropriate extension based on file type
+        const extension = originalMimeType === "image/jpeg" || originalMimeType === "image/jpg" ? "jpg" : "png";
+        await downloadDataUrl(dataUrl, `spacebar.${extension}`);
         // Track download
         const currentProduct = productCards.find((p) => p.id === productId);
         if (currentProduct) {
@@ -547,7 +551,7 @@ export default function ImageEditor({
 
     setCanvasDataUrl(dataUrl);
     setIsConfirmationOpen(true);
-  }, [canvasRef, coverageWarning, isSpacebar, mustCoverCanvas, productCards, productId, trackDownload]);
+  }, [canvasRef, coverageWarning, isSpacebar, mustCoverCanvas, productCards, productId, trackDownload, uploadedFile]);
 
   const resetKeycapSession = useCallback(() => {
     previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
