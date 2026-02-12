@@ -33,7 +33,7 @@ function App() {
     },
     {
       id: "keycap-kda",
-      title: "Keycap XDA $6.500",
+      title: "Keycap XDA $ 6.500",
       image: "/assets/keycap.webp",
       description: "Keycaps personalizados de alta calidad",
       redirectUrl:
