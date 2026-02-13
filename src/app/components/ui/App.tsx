@@ -49,15 +49,31 @@ function App() {
         "https://www.onicaps.online/productos/spacebar-personalizada-ov61k/",
       disabled: false,
     },
+     {
+      id: "testeomasivo",
+      title: "testeomasivo",
+      image: "/assets/spacebar.webp",
+      description: "testeomasivo",
+      redirectUrl:
+        "https://www.onicaps.online/productos/spacebar-personalizada-ov61k/",
+      disabled: true,
+    },
   ];
 
   const handleCardClick = (productId: string) => {
-    const product = productCards.find((p) => p.id === productId);
-    if (product?.disabled) return;
+  const product = productCards.find((p) => p.id === productId);
+  if (!product || product.disabled) return;
 
-    setSelectedProduct(productId);
-    setCurrentView("editor");
-  };
+  // 👉 Si tiene redirectUrl, redirige
+  if (product.id === "testeomasivo") {
+    window.location.href = "https://google.com";
+    return;
+  }
+
+  // 👉 Si no, abre el editor como siempre
+  setSelectedProduct(productId);
+  setCurrentView("editor");
+};
 
   const handleBackToHome = () => {
     setCurrentView("home");
