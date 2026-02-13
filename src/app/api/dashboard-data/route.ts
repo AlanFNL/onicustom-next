@@ -18,10 +18,11 @@ export async function GET(request: NextRequest) {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Fetch designs and product titles in parallel
-    const [designsResult, titlesResult] = await Promise.all([
+    // Fetch designs, product titles, and artesanal orders in parallel
+    const [designsResult, titlesResult, artesanalResult] = await Promise.all([
       supabase.from("designs").select("*").order("created_at", { ascending: false }),
       supabase.from("product_titles").select("*").order("created_at", { ascending: false }),
+      supabase.from("artesanal_orders").select("*").order("created_at", { ascending: false }),
     ]);
 
     if (designsResult.error) {
@@ -46,10 +47,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    if (artesanalResult.error) {
+      console.error("Error fetching artesanal orders:", artesanalResult.error);
+      return NextResponse.json(
+        {
+          success: false,
+          message: artesanalResult.error.message,
+        },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       designs: designsResult.data || [],
       productTitles: titlesResult.data || [],
+      artesanalOrders: artesanalResult.data || [],
     });
   } catch (error) {
     console.error("API route error:", error);

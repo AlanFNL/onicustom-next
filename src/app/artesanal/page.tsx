@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 
 type StatusMsg = { type: "ok" | "err"; msg: string } | null;
 
@@ -9,10 +10,12 @@ function digitsOnly(input: string) {
   return input.replace(/\D/g, "");
 }
 
+const spring = { duration: 0.5, ease: [0.32, 0.72, 0, 1] as const };
+
 export default function ArtesanalFormPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState(""); // WhatsApp (opcional)
+  const [phone, setPhone] = useState("");
   const [character, setCharacter] = useState("");
   const [note, setNote] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -42,7 +45,6 @@ export default function ArtesanalFormPage() {
       return;
     }
 
-    // Tel opcional, pero si lo completan validamos mínimo (muy suave)
     if (phone.trim()) {
       const d = digitsOnly(phone);
       if (d.length < 8) {
@@ -57,15 +59,45 @@ export default function ArtesanalFormPage() {
     setSubmitting(true);
 
     try {
-      // 🔸 Aún no conectamos a backend: simulamos envío
-      await new Promise((r) => setTimeout(r, 700));
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const uploadRes = await fetch("/api/upload-image", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        const errData = await uploadRes.json().catch(() => ({}));
+        throw new Error(errData.message || "Error al subir la imagen");
+      }
+
+      const { url: imageUrl } = await uploadRes.json();
+      if (!imageUrl) throw new Error("No se recibió URL de la imagen");
+
+      const orderRes = await fetch("/api/artesanal-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: fullName.trim(),
+          email: email.trim(),
+          phone: phone.trim() || null,
+          character: character.trim(),
+          note: note.trim() || null,
+          imageUrl,
+        }),
+      });
+
+      if (!orderRes.ok) {
+        const errData = await orderRes.json().catch(() => ({}));
+        throw new Error(errData.message || "Error al enviar el pedido");
+      }
 
       setStatus({
         type: "ok",
         msg: "¡Listo! Recibimos tu pedido. En breve te contactamos.",
       });
 
-      // reset
       setFullName("");
       setEmail("");
       setPhone("");
@@ -73,12 +105,12 @@ export default function ArtesanalFormPage() {
       setNote("");
       setFile(null);
 
-      const input = document.getElementById("file") as HTMLInputElement | null;
+      const input = document.getElementById("artesanal-file") as HTMLInputElement | null;
       if (input) input.value = "";
-    } catch {
+    } catch (err) {
       setStatus({
         type: "err",
-        msg: "Ocurrió un error enviando el pedido. Probá de nuevo.",
+        msg: err instanceof Error ? err.message : "Ocurrió un error enviando el pedido. Probá de nuevo.",
       });
     } finally {
       setSubmitting(false);
@@ -86,57 +118,93 @@ export default function ArtesanalFormPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100">
-        <div className="max-w-3xl mx-auto px-4 py-5 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-3">
-            <img
-              src="/assets/logo.jpeg"
-              alt="Onicaps Logo"
-              className="h-10 w-auto object-contain"
-            />
-            <span className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
-              Volver
-            </span>
-          </a>
+    <motion.div
+      className="min-h-screen bg-gray-50 overflow-x-hidden"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.6, ease: [0.32, 0.72, 0, 1] }}
+    >
+      {/* Header — aligned with ImageEditor */}
+      <header className="bg-white shadow-sm px-4 py-6 md:px-8">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ ...spring, delay: 0.1 }}
+          >
+            <Link
+              href="/"
+              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors duration-200"
+            >
+              <svg
+                className="w-5 h-5 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+              <span className="font-medium hidden sm:inline">Volver</span>
+            </Link>
+          </motion.div>
 
-          <span className="text-xs text-gray-500 hidden md:block">
-            Keycap artesanal • pedido sin editor
-          </span>
+          <motion.div
+            className="flex flex-col items-center flex-1 min-w-0 mx-4"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ ...spring, delay: 0.15 }}
+          >
+            <Link href="/" className="block">
+              <img
+                src="/assets/logo.jpeg"
+                alt="Onicaps Logo"
+                className="h-8 md:h-12 w-auto object-contain"
+              />
+            </Link>
+            <p className="text-xs md:text-sm text-gray-500 mt-1.5 font-light hidden sm:block">
+              Keycap artesanal • pedido sin editor
+            </p>
+          </motion.div>
+
+          <div className="w-20 sm:w-24 flex-shrink-0" aria-hidden />
         </div>
       </header>
 
-      {/* Main */}
-      <main className="max-w-3xl mx-auto px-4 py-10">
+      <main className="max-w-2xl mx-auto px-4 py-8 md:px-8 md:py-10">
         <motion.div
           initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
-          className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8"
+          transition={{ ...spring, delay: 0.2 }}
+          className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 md:p-8"
         >
-          <h1 className="text-2xl md:text-3xl font-semibold text-gray-900 tracking-tight">
+          <h1 className="text-xl md:text-2xl font-semibold text-gray-900 tracking-tight">
             Pedido de Keycap Artesanal
           </h1>
-          <p className="mt-2 text-gray-600 leading-relaxed">
+          <p className="mt-2 text-gray-600 text-sm md:text-base leading-relaxed">
             Completá estos datos y subí una foto de referencia. Cuanto mejor la
             foto, mejor el resultado.
           </p>
 
-          {status && (
-            <div
-              className={`mt-6 rounded-2xl border p-4 text-sm ${
-                status.type === "ok"
-                  ? "bg-green-50 border-green-200 text-green-800"
-                  : "bg-red-50 border-red-200 text-red-700"
-              }`}
-            >
-              {status.msg}
-            </div>
-          )}
+          <AnimatePresence mode="wait">
+            {status?.type === "err" && (
+              <motion.div
+                key={status.msg}
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+              >
+                {status.msg}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <form onSubmit={handleSubmit} className="mt-7 space-y-5">
-            {/* Nombre + Email */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -145,12 +213,11 @@ export default function ArtesanalFormPage() {
                 <input
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#7a4dff] bg-white"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#7a4dff] focus:border-transparent bg-white transition-all duration-200"
                   placeholder="Ej: Juan Pérez"
                   autoComplete="name"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Email <span className="text-red-500">*</span>
@@ -159,14 +226,13 @@ export default function ArtesanalFormPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#7a4dff] bg-white"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#7a4dff] focus:border-transparent bg-white transition-all duration-200"
                   placeholder="tu@email.com"
                   autoComplete="email"
                 />
               </div>
             </div>
 
-            {/* Teléfono */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Teléfono (WhatsApp){" "}
@@ -175,17 +241,16 @@ export default function ArtesanalFormPage() {
               <input
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#7a4dff] bg-white"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#7a4dff] focus:border-transparent bg-white transition-all duration-200"
                 placeholder="Ej: +54 9 341 123-4567"
                 autoComplete="tel"
                 inputMode="tel"
               />
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-1.5 text-xs text-gray-500">
                 Si lo dejás, podemos contactarte más rápido por WhatsApp.
               </p>
             </div>
 
-            {/* Personaje */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Personaje que querés que hagamos{" "}
@@ -194,30 +259,27 @@ export default function ArtesanalFormPage() {
               <input
                 value={character}
                 onChange={(e) => setCharacter(e.target.value)}
-                className="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#7a4dff] bg-white"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#7a4dff] focus:border-transparent bg-white transition-all duration-200"
                 placeholder="Ej: Goku / Pikachu / tu personaje"
               />
             </div>
 
-            {/* Foto */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Foto de referencia <span className="text-red-500">*</span>
               </label>
               <input
-                id="file"
+                id="artesanal-file"
                 type="file"
                 accept="image/*"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-white"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-[#7a4dff] focus:border-transparent transition-all duration-200"
               />
-              <p className="mt-2 text-xs text-gray-500">
-                Formatos recomendados: JPG/PNG. Ideal: imagen nítida, frontal y
-                sin filtros.
+              <p className="mt-1.5 text-xs text-gray-500">
+                Formatos recomendados: JPG/PNG. Ideal: imagen nítida, frontal y sin filtros.
               </p>
             </div>
 
-            {/* Nota */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Nota extra{" "}
@@ -227,27 +289,123 @@ export default function ArtesanalFormPage() {
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={4}
-                className="w-full px-4 py-3 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#7a4dff] bg-white resize-none"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#7a4dff] focus:border-transparent bg-white resize-none transition-all duration-200"
                 placeholder="Colores, estilo, si querés nombre, detalles importantes, etc."
               />
             </div>
 
-            {/* Submit */}
-            <button
+            <motion.button
               type="submit"
               disabled={!canSubmit}
-              className="w-full bg-[#7a4dff] hover:bg-[#6b42e6] disabled:opacity-60 disabled:hover:bg-[#7a4dff] text-white font-medium py-3.5 rounded-2xl transition-colors"
+              className="w-full bg-[#7a4dff] hover:bg-[#6b42e6] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-[#7a4dff] text-white font-medium py-3.5 rounded-xl transition-colors duration-200"
+              whileHover={canSubmit ? { scale: 1.01 } : {}}
+              whileTap={canSubmit ? { scale: 0.99 } : {}}
             >
               {submitting ? "Enviando..." : "Enviar pedido"}
-            </button>
+            </motion.button>
 
             <p className="text-xs text-gray-500 text-center">
-              Los campos marcados con <span className="text-red-500">*</span>{" "}
-              son obligatorios.
+              Los campos marcados con <span className="text-red-500">*</span> son obligatorios.
             </p>
           </form>
         </motion.div>
       </main>
-    </div>
+
+      {/* Footer — same as ImageEditor */}
+      <footer className="mt-16 py-12 px-4 md:px-8 border-t border-gray-100">
+        <motion.div
+          className="max-w-7xl mx-auto"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3, ease: [0.32, 0.72, 0, 1] }}
+        >
+          <div className="grid grid-cols-3 gap-4 md:flex md:justify-center md:space-x-8">
+            <Link
+              href="https://onicaps.online"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center space-y-2 text-gray-600 hover:text-[#7a4dff] transition-colors duration-200"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+              <span className="font-medium text-xs md:text-sm text-center">onicaps.online</span>
+            </Link>
+            <Link
+              href="https://instagram.com/oni.caps"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center space-y-2 text-gray-600 hover:text-[#7a4dff] transition-colors duration-200"
+            >
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+              </svg>
+              <span className="font-medium text-xs md:text-sm text-center">oni.caps</span>
+            </Link>
+            <Link
+              href="https://tiktok.com/@oni.caps"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center space-y-2 text-gray-600 hover:text-[#7a4dff] transition-colors duration-200"
+            >
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+              </svg>
+              <span className="font-medium text-xs md:text-sm text-center">@oni.caps</span>
+            </Link>
+          </div>
+        </motion.div>
+      </footer>
+
+      {/* Success popup */}
+      <AnimatePresence>
+        {status?.type === "ok" && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+            onClick={() => setStatus(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2, ease: [0.32, 0.72, 0, 1] }}
+              className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-green-100 flex items-center justify-center">
+                <svg
+                  className="w-7 h-7 text-green-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                ¡Pedido enviado!
+              </h3>
+              <p className="text-gray-600 text-sm mb-6">{status.msg}</p>
+              <button
+                type="button"
+                onClick={() => setStatus(null)}
+                className="w-full py-3 rounded-xl bg-[#7a4dff] hover:bg-[#6b42e6] text-white font-medium transition-colors"
+              >
+                Entendido
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }
+
