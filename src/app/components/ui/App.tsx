@@ -21,7 +21,7 @@ function App() {
       description: "Mousepad premium de gran tamaño",
       redirectUrl:
         "https://www.onicaps.online/productos/desk-pad-personalizado/",
-      disabled: false,
+      disabled: true,
     },
     {
       id: "mousepad-60x40",
@@ -30,7 +30,7 @@ function App() {
       description: "Mousepad compacto perfecto para tu setup",
       redirectUrl:
         "https://www.onicaps.online/productos/desk-pad-personalizado/",
-      disabled: false,
+      disabled: true,
     },
     {
       id: "keycap-kda",
@@ -518,7 +518,7 @@ function App() {
         </div>
 
         <motion.section
-          className="max-w-4xl mx-auto mt-12 md:mt-16 hidden"
+          className="max-w-4xl mx-auto mt-12 md:mt-16 "
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.95, ease: [0.32, 0.72, 0, 1] }}
