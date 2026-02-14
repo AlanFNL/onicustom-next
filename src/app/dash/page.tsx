@@ -71,11 +71,18 @@ function DesignCard({
     >
       <div className="flex items-center gap-4 min-w-0 flex-1">
         {showImage && (
-          <img
-            src={getImageUrl(design)}
-            alt={design.code}
-            className="w-12 h-12 md:w-14 md:h-14 object-cover rounded-lg flex-shrink-0"
-          />
+          <a
+            href={getImageUrl(design)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-shrink-0 rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-[#7a4dff] focus:ring-offset-1"
+          >
+            <img
+              src={getImageUrl(design)}
+              alt={design.code}
+              className="w-12 h-12 md:w-14 md:h-14 object-cover rounded-lg cursor-pointer"
+            />
+          </a>
         )}
         <div className="min-w-0">
           <p className="text-sm font-medium text-gray-900 truncate">
@@ -190,11 +197,18 @@ function ArtesanalOrderCard({
     >
       {/* Image */}
       {showImage && order.image_url && (
-        <img
-          src={getImageUrl(order.image_url)}
-          alt={order.character}
-          className="w-20 h-20 md:w-24 md:h-24 object-cover rounded-xl flex-shrink-0"
-        />
+        <a
+          href={getImageUrl(order.image_url)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-shrink-0 rounded-xl overflow-hidden focus:outline-none focus:ring-2 focus:ring-[#7a4dff] focus:ring-offset-1"
+        >
+          <img
+            src={getImageUrl(order.image_url)}
+            alt={order.character}
+            className="w-20 h-20 md:w-24 md:h-24 object-cover rounded-xl cursor-pointer"
+          />
+        </a>
       )}
 
       {/* Main info block */}

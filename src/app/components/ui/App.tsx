@@ -517,50 +517,49 @@ function App() {
           ))}
         </div>
 
-<motion.section
-  className="max-w-4xl mx-auto mt-12 md:mt-16"
-  initial={{ opacity: 0, y: 24 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{ duration: 0.6, delay: 0.95, ease: [0.32, 0.72, 0, 1] }}
->
-  <div className="rounded-3xl border border-gray-200 bg-gradient-to-br from-white to-gray-50/80 p-6 md:p-8 shadow-sm">
-    <div className="grid gap-6 md:grid-cols-[220px_1fr] items-center">
-      {/* Imagen (estilo cards) */}
-      <div className="aspect-square bg-gray-50/50 rounded-2xl overflow-hidden">
-        <img
-          src="/assets/keycap-artesanal.webp"
-          alt="Keycap artesanal"
-          className="w-full h-full object-cover transition-transform duration-700 ease-out hover:scale-[1.02]"
-        />
-      </div>
+        <motion.section
+          className="max-w-4xl mx-auto mt-12 md:mt-16"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.95, ease: [0.32, 0.72, 0, 1] }}
+        >
+          <div className="rounded-3xl border border-gray-200 bg-gradient-to-br from-white to-gray-50/80 p-6 md:p-8 shadow-sm">
+            <div className="grid gap-6 md:grid-cols-[220px_1fr] items-center">
+              {/* Imagen (estilo cards) */}
+              <div className="aspect-square bg-gray-50/50 rounded-2xl overflow-hidden">
+                <img
+                  src="/assets/keycap-artesanal.webp"
+                  alt="Keycap artesanal"
+                  className="w-full h-full object-cover transition-transform duration-700 ease-out hover:scale-[1.02]"
+                />
+              </div>
 
-      {/* Texto + CTA */}
-      <div>
-        <h2 className="mt-0 text-2xl md:text-3xl font-medium tracking-tight text-gray-900">
-          Keycap artesanal
-        </h2>
+              {/* Texto + CTA */}
+              <div>
+                <h2 className="mt-0 text-2xl md:text-3xl font-medium tracking-tight text-gray-900">
+                  Keycap Artesanal
+                </h2>
 
-        <p className="mt-3 text-sm md:text-base text-gray-600 leading-relaxed max-w-3xl">
-          Acá podes pedir tu boceto de keycap personalizada!
-        </p>
+                <p className="mt-3 text-sm md:text-base text-gray-600 leading-relaxed max-w-3xl">
+                  Acá podes pedir tu boceto de keycap personalizada!
+                </p>
 
-        <div className="mt-6 flex flex-wrap items-center gap-3">
-          <Link
-            href="/artesanal"
-            className="inline-flex w-full md:w-fit items-center justify-center md:justify-start text-center md:text-left gap-2 rounded-2xl bg-[#7a4dff] px-6 py-3.5 text-base font-medium text-white hover:bg-[#6b42e6] transition-colors"
-          >
-            Pedi tu boceto
-          </Link>
-        </div>
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <Link
+                    href="/artesanal"
+                    className="inline-flex w-full md:w-fit items-center justify-center md:justify-start text-center md:text-left gap-2 rounded-2xl bg-[#7a4dff] px-6 py-3.5 text-base font-medium text-white hover:bg-[#6b42e6] transition-colors"
+                  >
+                    Pedi tu boceto
+                  </Link>
+                </div>
 
-        <p className="text-xs md:text-sm text-gray-500 mt-3">
-          Recorda que los bocetos suelen tener demora
-        </p>
-      </div>
-    </div>
-  </div>
-</motion.section>
-
+                <p className="text-xs md:text-sm text-gray-500 mt-3">
+                  Recorda que los bocetos suelen tener demora
+                </p>
+              </div>
+            </div>
+          </div>
+        </motion.section>
       </main>
 
       {/* Footer */}
