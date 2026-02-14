@@ -11,6 +11,102 @@ function digitsOnly(input: string) {
 }
 
 const spring = { duration: 0.5, ease: [0.32, 0.72, 0, 1] as const };
+function StepsTimelineBar() {
+  const steps = [
+    { title: "Pedís tu boceto", desc: "Completás el formulario" },
+    { title: "Te enviamos el diseño", desc: "Revisás y pedís ajustes" },
+    { title: "Aprobás y comprás", desc: "Te pasamos el link" },
+    { title: "Fabricamos y enviamos", desc: "Despacho final" },
+  ];
+
+  const activeStep = 1; // 1..4
+  const accent = "#7a4dff";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: [0.32, 0.72, 0, 1] }}
+      className="mt-5"
+    >
+      <div className="rounded-2xl border border-gray-200 bg-white p-4 md:p-5">
+        {/* En desktop: no scroll | En mobile: scroll suave */}
+        <div className="md:overflow-visible overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+          {/* Solo en mobile forzamos un ancho mínimo. En md+ usamos w-full */}
+          <div className="w-full min-w-[420px] md:min-w-0">
+            <div className="relative pt-2">
+              {/* Track */}
+              <div className="absolute left-0 right-0 top-[22px] h-[6px] rounded-full bg-gray-200" />
+
+              {/* Progress */}
+              <div
+                className="absolute left-0 top-[22px] h-[6px] rounded-full"
+                style={{
+                  width: `${((Math.max(1, activeStep) - 1) / (steps.length - 1)) * 100}%`,
+                  backgroundColor: accent,
+                }}
+              />
+
+              <div className="relative grid grid-cols-4 gap-2">
+                {steps.map((s, idx) => {
+                  const stepNumber = idx + 1;
+                  const done = stepNumber <= activeStep;
+
+                  return (
+                    <div key={s.title} className="flex flex-col items-center">
+                      {/* Nodo */}
+                      <div
+                        className="h-10 w-10 md:h-11 md:w-11 rounded-full flex items-center justify-center border-4 bg-white"
+                        style={{ borderColor: done ? accent : "#D1D5DB" }}
+                      >
+                        {done ? (
+                          <svg
+                            className="h-5 w-5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke={accent}
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M20 6L9 17l-5-5" />
+                          </svg>
+                        ) : (
+                          <span className="text-sm font-semibold text-gray-500">
+                            {stepNumber}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Texto (controlado para que no rompa) */}
+                      <div className="mt-3 text-center px-1 md:px-2 w-full">
+                        <div className="text-[12px] md:text-sm font-semibold text-gray-900 leading-tight">
+                          {s.title}
+                        </div>
+                        <div className="mt-1 text-[11px] md:text-xs text-gray-600 leading-snug line-clamp-2">
+                          {s.desc}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Hint solo en mobile */}
+            <div className="mt-3 md:hidden text-[11px] text-gray-500 text-center">
+              Deslizá para ver todos los pasos →
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+
+
+
 
 export default function ArtesanalFormPage() {
   const [fullName, setFullName] = useState("");
@@ -32,6 +128,7 @@ export default function ArtesanalFormPage() {
       !submitting
     );
   }, [fullName, email, character, file, submitting]);
+  
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,7 +192,7 @@ export default function ArtesanalFormPage() {
 
       setStatus({
         type: "ok",
-        msg: "¡Listo! Recibimos tu pedido. En breve te contactamos.",
+        msg: "¡Listo! Recibimos tu pedido. recorda que la fase de boceto puede demorar por al alta demanda y aun asi podes recibir una respuesta negativo D:.",
       });
 
       setFullName("");
@@ -182,13 +279,15 @@ export default function ArtesanalFormPage() {
           transition={{ ...spring, delay: 0.2 }}
           className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 md:p-8"
         >
-          <h1 className="text-xl md:text-2xl font-semibold text-gray-900 tracking-tight">
-            Pedido de Keycap Artesanal
-          </h1>
-          <p className="mt-2 text-gray-600 text-sm md:text-base leading-relaxed">
-            Completá estos datos y subí una foto de referencia. Cuanto mejor la
-            foto, mejor el resultado.
-          </p>
+<h1 className="text-xl md:text-2xl font-semibold text-gray-900 tracking-tight">
+  Pedido Boceto
+</h1>
+<p className="mt-2 text-gray-600 text-sm md:text-base leading-relaxed">
+  Completá estos datos y subí una foto de referencia.
+</p>
+
+<StepsTimelineBar />
+
 
           <AnimatePresence mode="wait">
             {status?.type === "err" && (
@@ -253,7 +352,7 @@ export default function ArtesanalFormPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Personaje que querés que hagamos{" "}
+                Personaje o idea que querés que hagamos{" "}
                 <span className="text-red-500">*</span>
               </label>
               <input
@@ -266,7 +365,7 @@ export default function ArtesanalFormPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Foto de referencia <span className="text-red-500">*</span>
+                Imagen de referencia <span className="text-red-500">*</span>
               </label>
               <input
                 id="artesanal-file"
@@ -391,7 +490,7 @@ export default function ArtesanalFormPage() {
                 </svg>
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                ¡Pedido enviado!
+                ¡Boceto enviado!
               </h3>
               <p className="text-gray-600 text-sm mb-6">{status.msg}</p>
               <button

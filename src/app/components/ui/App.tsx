@@ -525,12 +525,10 @@ function App() {
         >
           <div className="rounded-3xl border border-gray-200 bg-gradient-to-br from-white to-gray-50/80 p-6 md:p-8 shadow-sm">
             <h2 className="mt-2 text-2xl md:text-3xl font-medium tracking-tight text-gray-900">
-              ¿No tenés un diseño definido?
+              Keycap artesanal
             </h2>
             <p className="mt-3 text-sm md:text-base text-gray-600 leading-relaxed max-w-3xl">
-              Si tenés un boceto, una referencia o una idea escrita, armamos tu
-              pedido artesanal paso a paso. Cargá tu imagen y contanos el
-              personaje, estilo o detalles que querés.
+              Acá podes pedir tu boceto de keycap personalizada y si te gusta podes comprarla!
             </p>
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -538,11 +536,11 @@ function App() {
                 href="/artesanal"
                 className="inline-flex w-full md:w-fit items-center justify-center md:justify-start text-center md:text-left gap-2 rounded-2xl bg-[#7a4dff] px-6 py-3.5 text-base font-medium text-white hover:bg-[#6b42e6] transition-colors"
               >
-                Ir a pedidos con boceto
+                Pedi tu boceto
               </Link>
             </div>
             <p className="text-xs md:text-sm text-gray-500 mt-3">
-              Ideal para quienes tienen una idea, pero no un diseño final.
+              Recorda que los bocetos suelen tener demora
             </p>
           </div>
         </motion.section>
