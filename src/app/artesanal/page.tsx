@@ -285,6 +285,26 @@ export default function ArtesanalFormPage() {
 <p className="mt-2 text-gray-600 text-sm md:text-base leading-relaxed">
   Completá estos datos y subí una foto de referencia.
 </p>
+<p className="mt-2 text-gray-600 text-sm md:text-base leading-relaxed font-medium">
+  Tené en cuenta estos detalles:
+</p>
+
+<ul className="mt-2 text-gray-600 text-sm md:text-base leading-relaxed list-disc pl-5 space-y-1">
+    <li>
+    Estás pidiendo un boceto sin costo, lo que implica que muchas personas lo solicitan
+    y puede haber demoras en la respuesta.
+  </li>
+  <li>
+    No estás comprando nada aún.
+  </li>
+  <li>
+    Los diseños no siempre pueden realizarse, por lo que es posible que recibas
+    una respuesta negativa.
+  </li>
+    <li>
+    No hacemos personalizadas de Rostros ( ej: La cara de mi novia, jinx del lol , el chabo del 8 )
+  </li>
+</ul>
 
 <StepsTimelineBar />
 
