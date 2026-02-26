@@ -430,7 +430,7 @@ export default function Dashboard() {
     if (typeof window === "undefined") return;
     const stored = localStorage.getItem(ARTESANAL_MESSAGE_KEY);
     const defaultTemplate =
-      "Hola {{name}}, gracias por tu pedido de keycap artesanal. Te contactamos pronto.";
+      "Hola {{name}}, te envio imagen del boceto que nos pediste, quedan bastantes retoques pero con esto podes ver como quedaria y si te gusta comprarla en el siguiente link https://www.onicaps.online/productos/keycap-artisan-personalizada/ .";
     setMessageTemplate(stored || defaultTemplate);
   }, []);
 
