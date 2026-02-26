@@ -294,6 +294,9 @@ export default function ArtesanalFormPage() {
     Estás pidiendo un boceto sin costo, lo que implica que muchas personas lo solicitan
     y puede haber demoras en la respuesta.
   </li>
+      <li>
+    El precio de las keycaps personalizadas es de $16.000 aproximadamente https://www.onicaps.online/productos/keycap-artisan-personalizada/
+  </li>
   <li>
     No estás comprando nada aún.
   </li>
