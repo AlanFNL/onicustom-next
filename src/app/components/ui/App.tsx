@@ -436,8 +436,7 @@ function App() {
             Creá tu diseño
           </h1>
           <p className="text-xl md:text-2xl text-gray-500 max-w-3xl mx-auto font-light leading-relaxed">
-            Diseños únicos para tu setup. Mousepads y keycaps personalizados con
-            la mejor calidad.
+            En este editor podes crear tus imagenes a como vos quieras para luego subirlas al realizar la compra.
           </p>
         </motion.div>
 
