@@ -21,7 +21,7 @@ function App() {
       description: "Mousepad premium de gran tamaño",
       redirectUrl:
         "https://www.onicaps.online/productos/desk-pad-personalizado/",
-      disabled: true,
+      disabled: false,
     },
     {
       id: "mousepad-60x40",
