@@ -3,73 +3,30 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import ImageEditor from "../editor/ImageEditor";
+import { useRouter } from "next/navigation";
+import {
+  getSlugForProductId,
+  productCards,
+} from "../../lib/product-cards";
 
 function App() {
+  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [currentView, setCurrentView] = useState<"home" | "editor">("home");
-  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [isNavbarVisible, setIsNavbarVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [showShadow, setShowShadow] = useState(false);
-
-  const productCards = [
-    {
-      id: "mousepad-90x40",
-      title: "Deskpad 90x40 $35.000",
-      image: "/assets/mousepad9040.webp",
-      description: "Mousepad premium de gran tamaño",
-      redirectUrl:
-        "https://www.onicaps.online/productos/desk-pad-personalizado/",
-      disabled: false,
-    },
-    {
-      id: "mousepad-60x40",
-      title: "Deskpad 60x40 $33.500",
-      image: "/assets/mousepad6040.webp",
-      description: "Mousepad compacto perfecto para tu setup",
-      redirectUrl:
-        "https://www.onicaps.online/productos/desk-pad-personalizado/",
-      disabled: true,
-    },
-    {
-      id: "keycap-kda",
-      title: "Keycap XDA $ 6.500",
-      image: "/assets/keycap.webp",
-      description: "Keycaps personalizados de alta calidad",
-      redirectUrl:
-        "https://www.onicaps.online/productos/keycap-pro-personalizada/",
-      disabled: false,
-    },
-    {
-      id: "spacebar",
-      title: "Spacebar Custom $15.000",
-      image: "/assets/spacebar.webp",
-      description: "Barra espaciadora única para tu teclado",
-      redirectUrl:
-        "https://www.onicaps.online/productos/spacebar-personalizada-ov61k/",
-      disabled: false,
-    },
-  ];
 
   const handleCardClick = (productId: string) => {
     const product = productCards.find((p) => p.id === productId);
     if (!product || product.disabled) return;
 
-    // 👉 Si tiene redirectUrl, redirige
     if (product.id === "testeomasivo") {
       window.location.href = "https://google.com";
       return;
     }
 
-    // 👉 Si no, abre el editor como siempre
-    setSelectedProduct(productId);
-    setCurrentView("editor");
-  };
-
-  const handleBackToHome = () => {
-    setCurrentView("home");
-    setSelectedProduct(null);
+    const slug = getSlugForProductId(productId);
+    router.push(`/${slug}`);
   };
 
   const handleMenuToggle = () => {
@@ -137,16 +94,6 @@ function App() {
       document.body.style.overflow = "unset";
     };
   }, [isMenuOpen]);
-
-  if (currentView === "editor") {
-    return (
-      <ImageEditor
-        productId={selectedProduct!}
-        productCards={productCards}
-        onBack={handleBackToHome}
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-white">
