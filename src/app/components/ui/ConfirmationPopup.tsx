@@ -204,6 +204,13 @@ export default function ConfirmationPopup({
       const result = await apiResponse.json();
 
       if (result.success) {
+        // Si estamos dentro de un iframe (Tienda Nube), mandar URL al parent
+        if (window.parent !== window) {
+          window.parent.postMessage(
+            { type: 'design-saved', imageUrl: uploadedUrl },
+            'https://www.onicaps.online'
+          );
+        }
         setCurrentStep(2);
       } else {
         throw new Error(result.message || "Failed to save design");
